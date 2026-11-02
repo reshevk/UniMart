@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+:root {
+  font-family: "Google Sans Flex", sans-serif;
+
+  --green-primary: #16865a;
+  --green-dark: #075c3b;
+  --green-light: #e8f7ef;
+  --green-mint: #c9f2dc;
+
+  --background: #f4faf6;
+  --text-primary: #18352a;
+  --text-secondary: #718078;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--background);
+  color: var(--text-primary);
+  font-family: "Google Sans Flex", sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
