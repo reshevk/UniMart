@@ -54,7 +54,6 @@ function Home({ user, onLogout }) {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [users, setUsers] = useState([]);
   const [products, setProducts] = useState([]);
   const [apiError, setApiError] = useState("");
   const [productsLoading, setProductsLoading] = useState(true);
@@ -68,14 +67,6 @@ function Home({ user, onLogout }) {
   });
 
   useEffect(() => {
-    API.get("/users")
-      .then((response) => {
-        setUsers(response.data.users || []);
-      })
-      .catch((error) => {
-        console.error("Users API error:", error);
-      });
-
     API.get("/products")
       .then((response) => {
         setProducts(response.data.products || []);
@@ -553,8 +544,7 @@ function Home({ user, onLogout }) {
 
         {/* API Connection Status */}
         <p className="pb-8 text-center text-xs text-gray-500">
-          {apiError ||
-            `Connected to database • ${users.length} registered users`}
+          {apiError || "UniMart marketplace is running"}
         </p>
       </main>
 

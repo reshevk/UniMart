@@ -106,12 +106,12 @@ router.post(
         });
       }
 
-      if (password.length < 8) {
-        return res.status(400).json({
-          success: false,
-          message: "Password must be at least 8 characters",
-        });
-      }
+     if (password.length < 8 || password.length > 128) {
+  return res.status(400).json({
+    success: false,
+    message: "Password must be between 8 and 128 characters",
+  });
+}
 
       const existingUser = await prisma.user.findUnique({
         where: { email: normalizedEmail },

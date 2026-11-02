@@ -13,6 +13,27 @@ import productRoutes from "./routes/products.js";
 import chatRoutes from "./routes/chat.js";
 import { authenticateToken } from "./middleware/auth.js";
 
+const requiredEnvVars = [
+  "DATABASE_URL",
+  "JWT_SECRET",
+  "CLOUDINARY_CLOUD_NAME",
+  "CLOUDINARY_API_KEY",
+  "CLOUDINARY_API_SECRET",
+  "SMTP_USER",
+  "SMTP_APP_PASSWORD",
+];
+
+const missingEnvVars = requiredEnvVars.filter(
+  (key) => !process.env[key]?.trim()
+);
+
+if (missingEnvVars.length > 0) {
+  console.error(
+    `Missing required environment variables: ${missingEnvVars.join(", ")}`
+  );
+  process.exit(1);
+}
+
 const app = express();
 const httpServer = createServer(app);
 
