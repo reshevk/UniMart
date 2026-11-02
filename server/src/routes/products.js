@@ -1,9 +1,49 @@
 
+import { v2 as cloudinary } from "cloudinary";
 import express from "express";
 import { prisma } from "../lib/prisma.js";
 import { authenticateToken } from "../middleware/auth.js";
 
 const router = express.Router();
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Generate Cloudinary signed upload details
+router.post("/upload-signature", authenticateToken, (req, res) => {
+  try {
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    const paramsToSign = {
+      timestamp,
+      upload_preset: "unimart_signed",
+    };
+
+    const signature = cloudinary.utils.api_sign_request(
+      paramsToSign,
+      process.env.CLOUDINARY_API_SECRET
+    );
+
+    res.json({
+      success: true,
+      timestamp,
+      signature,
+      apiKey: process.env.CLOUDINARY_API_KEY,
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+      uploadPreset: "unimart_signed",
+    });
+  } catch (error) {
+    console.error("Cloudinary signature error:", error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to authorize image upload",
+    });
+  }
+});
 
 const CLOUDINARY_HOST = "res.cloudinary.com";
 const CLOUDINARY_CLOUD = "vibzzs2e";
@@ -80,7 +120,8 @@ router.post("/", authenticateToken, async (req, res) => {
     if (!validateProductFields({ title, description, category, condition })) {
       return res.status(400).json({
         success: false,
-        message: "Please provide valid product details. Title must be 3-100 characters and description 10-2000 characters.",
+        message:
+          "Please provide valid product details. Title must be 3-100 characters and description 10-2000 characters.",
       });
     }
 
@@ -96,7 +137,8 @@ router.post("/", authenticateToken, async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Price must be greater than zero and no more than 10000000",
+        message:
+          "Price must be greater than zero and no more than 10000000",
       });
     }
 
@@ -136,6 +178,7 @@ router.post("/", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("Create product error:", error);
+
     res.status(500).json({
       success: false,
       message: "Failed to create product",
@@ -159,6 +202,7 @@ router.get("/", authenticateToken, async (req, res) => {
     res.json({ success: true, products });
   } catch (error) {
     console.error("Fetch products error:", error);
+
     res.status(500).json({
       success: false,
       message: "Failed to fetch products",
@@ -177,6 +221,7 @@ router.get("/my-listings", authenticateToken, async (req, res) => {
     res.json({ success: true, products });
   } catch (error) {
     console.error("Fetch my listings error:", error);
+
     res.status(500).json({
       success: false,
       message: "Failed to fetch your listings",
@@ -188,6 +233,7 @@ router.get("/my-listings", authenticateToken, async (req, res) => {
 router.patch("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+
     const {
       title,
       description,
@@ -257,7 +303,8 @@ router.patch("/:id", authenticateToken, async (req, res) => {
       ) {
         return res.status(400).json({
           success: false,
-          message: "Price must be greater than zero and no more than 10000000",
+          message:
+            "Price must be greater than zero and no more than 10000000",
         });
       }
 
@@ -348,6 +395,7 @@ router.patch("/:id", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("Update product error:", error);
+
     res.status(500).json({
       success: false,
       message: "Failed to update listing",
@@ -384,6 +432,7 @@ router.delete("/:id", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("Delete product error:", error);
+
     res.status(500).json({
       success: false,
       message: "Failed to delete listing",

@@ -54,8 +54,10 @@ function SellItem() {
 
     if (!selectedImage) return;
 
-    if (!selectedImage.type.startsWith("image/")) {
-      setMessage("Please select a valid image.");
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+    if (!allowedTypes.includes(selectedImage.type)) {
+      setMessage("Please select a JPG, PNG or WebP image.");
       e.target.value = "";
       return;
     }
@@ -71,15 +73,23 @@ function SellItem() {
   }
 
   async function uploadImage() {
-    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+    const signatureResponse = await API.post(
+      "/products/upload-signature"
+    );
 
-    if (!cloudName || !uploadPreset) {
-      throw new Error("Cloudinary configuration is missing.");
-    }
+    const {
+      timestamp,
+      signature,
+      apiKey,
+      cloudName,
+      uploadPreset,
+    } = signatureResponse.data;
 
     const imageData = new FormData();
     imageData.append("file", image);
+    imageData.append("timestamp", timestamp);
+    imageData.append("api_key", apiKey);
+    imageData.append("signature", signature);
     imageData.append("upload_preset", uploadPreset);
 
     const response = await fetch(
@@ -93,7 +103,9 @@ function SellItem() {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error?.message || "Image upload failed.");
+      throw new Error(
+        data.error?.message || "Image upload failed."
+      );
     }
 
     return data.secure_url;
@@ -162,9 +174,11 @@ function SellItem() {
             <div className="mb-4 inline-flex rounded-2xl bg-green-100 p-3 text-green-800">
               <Package size={26} />
             </div>
+
             <h1 className="text-3xl font-bold text-[#075c3b]">
               Sell an Item
             </h1>
+
             <p className="mt-2 text-gray-500">
               Give your unused items a new home within your college.
             </p>
@@ -181,8 +195,10 @@ function SellItem() {
               <label className="mb-2 block text-sm font-semibold">
                 Product Title
               </label>
+
               <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4">
                 <Tag size={18} className="text-gray-400" />
+
                 <input
                   name="title"
                   value={formData.title}
@@ -199,8 +215,10 @@ function SellItem() {
               <label className="mb-2 block text-sm font-semibold">
                 Description
               </label>
+
               <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white px-4">
                 <FileText size={18} className="mt-3 text-gray-400" />
+
                 <textarea
                   name="description"
                   value={formData.description}
@@ -219,8 +237,10 @@ function SellItem() {
                 <label className="mb-2 block text-sm font-semibold">
                   Price (₹)
                 </label>
+
                 <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4">
                   <IndianRupee size={18} className="text-gray-400" />
+
                   <input
                     type="number"
                     name="price"
@@ -239,6 +259,7 @@ function SellItem() {
                 <label className="mb-2 block text-sm font-semibold">
                   Category
                 </label>
+
                 <select
                   name="category"
                   value={formData.category}
@@ -261,6 +282,7 @@ function SellItem() {
               <label className="mb-2 block text-sm font-semibold">
                 Item Condition
               </label>
+
               <select
                 name="condition"
                 value={formData.condition}
@@ -280,8 +302,10 @@ function SellItem() {
               <label className="mb-2 block text-sm font-semibold">
                 WhatsApp Number (Optional)
               </label>
+
               <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4">
                 <Phone size={18} className="text-gray-400" />
+
                 <input
                   type="tel"
                   name="sellerWhatsapp"
@@ -292,6 +316,7 @@ function SellItem() {
                   maxLength={15}
                 />
               </div>
+
               <p className="mt-2 text-xs text-gray-500">
                 Enter your 10-digit Indian number, with or without +91.
                 Buyers can use it to contact you.
@@ -328,12 +353,15 @@ function SellItem() {
               ) : (
                 <label className="flex cursor-pointer flex-col items-center rounded-2xl border-2 border-dashed border-green-200 bg-green-50/50 p-8 text-center transition hover:bg-green-50">
                   <ImagePlus size={34} className="mb-3 text-green-700" />
+
                   <span className="font-semibold text-gray-700">
                     Click to select a product image
                   </span>
+
                   <span className="mt-2 text-xs text-gray-500">
                     JPG, PNG or WebP · Maximum 5 MB
                   </span>
+
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
