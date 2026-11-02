@@ -5,6 +5,10 @@ import { io } from "socket.io-client";
 import { ArrowLeft, Send, MessageCircle, Package } from "lucide-react";
 import API from "../api";
 
+const SOCKET_URL =
+  import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
+  "http://localhost:5001";
+
 export default function Chat({ user }) {
   const navigate = useNavigate();
   const { conversationId } = useParams();
@@ -29,7 +33,7 @@ export default function Chat({ user }) {
       return;
     }
 
-    const socket = io("http://localhost:5001", {
+    const socket = io(SOCKET_URL, {
       auth: { token },
     });
 
