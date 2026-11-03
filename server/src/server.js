@@ -1,3 +1,4 @@
+
 import "dotenv/config";
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -11,13 +12,14 @@ const requiredEnvVars = [
   "CLOUDINARY_CLOUD_NAME",
   "CLOUDINARY_API_KEY",
   "CLOUDINARY_API_SECRET",
-  "SMTP_USER",
-  "SMTP_APP_PASSWORD",
+  "BREVO_API_KEY",
+  "BREVO_SENDER_EMAIL",
 ];
 
 const missingEnvVars = requiredEnvVars.filter(
   (key) => !process.env[key]?.trim()
 );
+
 if (
   process.env.JWT_SECRET &&
   Buffer.byteLength(process.env.JWT_SECRET, "utf8") < 32
@@ -25,6 +27,7 @@ if (
   console.error("JWT_SECRET must be at least 32 bytes long.");
   process.exit(1);
 }
+
 if (missingEnvVars.length > 0) {
   console.error(
     `Missing required environment variables: ${missingEnvVars.join(", ")}`
@@ -32,10 +35,7 @@ if (missingEnvVars.length > 0) {
   process.exit(1);
 }
 
-
 const httpServer = createServer(app);
-
-
 
 const io = new Server(httpServer, {
   cors: {

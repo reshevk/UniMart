@@ -1,20 +1,12 @@
+
 import expressRateLimit from "express-rate-limit";
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
 import { randomInt } from "node:crypto";
 import { prisma } from "../lib/prisma.js";
 
 const router = express.Router();
-
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_APP_PASSWORD,
-  },
-});
 
 function rateLimit(windowMs, maxRequests, message) {
   return expressRateLimit({
@@ -36,8 +28,56 @@ function createToken(user) {
       email: user.email,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "7d" }
+    {
+      algorithm: "HS256",
+      expiresIn: "7d",
+    }
   );
+}
+
+async function sendVerificationEmail(email, otp) {
+  const apiKey = process.env.BREVO_API_KEY;
+  const senderEmail = process.env.BREVO_SENDER_EMAIL;
+  const senderName = process.env.BREVO_SENDER_NAME || "UniMart";
+
+  if (!apiKey || !senderEmail) {
+    throw new Error("Brevo email configuration is missing");
+  }
+
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": apiKey,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      sender: {
+        name: senderName,
+        email: senderEmail,
+      },
+      to: [{ email }],
+      subject: "Your UniMart verification code",
+      textContent: `Your UniMart verification code is ${otp}. It expires in 10 minutes.`,
+      htmlContent: `
+        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 24px;">
+          <h2 style="color: #075c3b;">Welcome to UniMart!</h2>
+          <p>Use this code to verify your SST student email address:</p>
+          <h1 style="letter-spacing: 8px; color: #16865a;">${otp}</h1>
+          <p>This code expires in 10 minutes.</p>
+          <p>If you did not request this code, you can ignore this email.</p>
+        </div>
+      `,
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(
+      `Brevo API request failed with status ${response.status}: ${errorBody}`
+    );
+  }
 }
 
 // SEND REGISTRATION OTP
@@ -132,24 +172,13 @@ router.post(
       });
 
       try {
-        await transporter.sendMail({
-          from: `"UniMart" <${process.env.SMTP_USER}>`,
-          to: normalizedEmail,
-          subject: "Your UniMart verification code",
-          text: `Your UniMart verification code is ${otp}. It expires in 10 minutes.`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 24px;">
-              <h2 style="color: #075c3b;">Welcome to UniMart!</h2>
-              <p>Use this code to verify your SST student email address:</p>
-              <h1 style="letter-spacing: 8px; color: #16865a;">${otp}</h1>
-              <p>This code expires in 10 minutes.</p>
-              <p>If you did not request this code, you can ignore this email.</p>
-            </div>
-          `,
-        });
+        await sendVerificationEmail(normalizedEmail, otp);
       } catch (mailError) {
         await prisma.pendingRegistration.deleteMany({
-          where: { email: normalizedEmail },
+          where: {
+            email: normalizedEmail,
+            otpHash,
+          },
         });
 
         console.error("OTP email error:", mailError);
@@ -160,14 +189,14 @@ router.post(
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         message: "Verification code sent to your college email",
       });
     } catch (error) {
       console.error("Registration OTP error:", error);
 
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: "Unable to start registration",
       });
@@ -219,9 +248,12 @@ router.post(
         });
       }
 
-      if (pending.expiresAt < new Date()) {
-        await prisma.pendingRegistration.delete({
-          where: { email: normalizedEmail },
+      if (pending.expiresAt <= new Date()) {
+        await prisma.pendingRegistration.deleteMany({
+          where: {
+            email: normalizedEmail,
+            expiresAt: { lte: new Date() },
+          },
         });
 
         return res.status(400).json({
@@ -231,8 +263,11 @@ router.post(
       }
 
       if (pending.attempts >= 5) {
-        await prisma.pendingRegistration.delete({
-          where: { email: normalizedEmail },
+        await prisma.pendingRegistration.deleteMany({
+          where: {
+            email: normalizedEmail,
+            attempts: { gte: 5 },
+          },
         });
 
         return res.status(429).json({
@@ -244,16 +279,59 @@ router.post(
       const otpMatches = await bcrypt.compare(otp, pending.otpHash);
 
       if (!otpMatches) {
-        const updatedAttempts = pending.attempts + 1;
+        const attemptUpdate = await prisma.pendingRegistration.updateMany({
+          where: {
+            email: normalizedEmail,
+            otpHash: pending.otpHash,
+            expiresAt: { gt: new Date() },
+            AND: [
+              { attempts: pending.attempts },
+              { attempts: { lt: 5 } },
+            ],
+          },
+          data: {
+            attempts: { increment: 1 },
+          },
+        });
 
-        if (updatedAttempts >= 5) {
-          await prisma.pendingRegistration.delete({
-            where: { email: normalizedEmail },
-          });
-        } else {
-          await prisma.pendingRegistration.update({
-            where: { email: normalizedEmail },
-            data: { attempts: updatedAttempts },
+        if (attemptUpdate.count === 0) {
+          const currentPending =
+            await prisma.pendingRegistration.findUnique({
+              where: { email: normalizedEmail },
+            });
+
+          if (!currentPending) {
+            return res.status(404).json({
+              success: false,
+              message: "Registration expired or already completed.",
+            });
+          }
+
+          if (
+            currentPending.expiresAt <= new Date() ||
+            currentPending.attempts >= 5
+          ) {
+            await prisma.pendingRegistration.deleteMany({
+              where: {
+                email: normalizedEmail,
+                OR: [
+                  { expiresAt: { lte: new Date() } },
+                  { attempts: { gte: 5 } },
+                ],
+              },
+            });
+
+            return res.status(429).json({
+              success: false,
+              message: "Too many attempts or verification code expired. Please register again.",
+            });
+          }
+        } else if (pending.attempts + 1 >= 5) {
+          await prisma.pendingRegistration.deleteMany({
+            where: {
+              email: normalizedEmail,
+              attempts: { gte: 5 },
+            },
           });
         }
 
@@ -264,7 +342,20 @@ router.post(
       }
 
       const user = await prisma.$transaction(async (tx) => {
-        const createdUser = await tx.user.create({
+        const claimed = await tx.pendingRegistration.deleteMany({
+          where: {
+            email: normalizedEmail,
+            otpHash: pending.otpHash,
+            expiresAt: { gt: new Date() },
+            attempts: { lt: 5 },
+          },
+        });
+
+        if (claimed.count !== 1) {
+          return null;
+        }
+
+        return tx.user.create({
           data: {
             name: pending.name,
             email: pending.email,
@@ -272,15 +363,16 @@ router.post(
             emailVerified: true,
           },
         });
-
-        await tx.pendingRegistration.delete({
-          where: { email: normalizedEmail },
-        });
-
-        return createdUser;
       });
 
-      res.status(201).json({
+      if (!user) {
+        return res.status(409).json({
+          success: false,
+          message: "Verification code was already used or is no longer valid. Please register again.",
+        });
+      }
+
+      return res.status(201).json({
         success: true,
         message: "Email verified! Your account has been created.",
         token: createToken(user),
@@ -293,7 +385,7 @@ router.post(
     } catch (error) {
       console.error("Email verification error:", error);
 
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: "Email verification failed",
       });
@@ -345,7 +437,7 @@ router.post(
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         message: "Login successful",
         token: createToken(user),
@@ -358,7 +450,7 @@ router.post(
     } catch (error) {
       console.error("Login error:", error);
 
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: "Login failed",
       });
