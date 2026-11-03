@@ -55,6 +55,7 @@ model Product {
   updatedAt DateTime @updatedAt
 }
 
+
 model Conversation {
   id        String   @id @default(uuid())
 
@@ -65,15 +66,19 @@ model Conversation {
   buyer   User   @relation("ConversationBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
 
   sellerId String
-  seller   User   @relation("ConversationSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  seller  User   @relation("ConversationSeller", fields: [sellerId], references: [id], onDelete: Cascade)
 
-  messages  Message[]
+  messages Message[]
+
+  buyerLastReadAt  DateTime?
+  sellerLastReadAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([productId, buyerId])
 }
+
 
 model Message {
   id             String       @id @default(uuid())

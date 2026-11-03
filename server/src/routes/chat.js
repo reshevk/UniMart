@@ -73,7 +73,7 @@ router.post("/conversations", async (req, res) => {
   }
 });
 
-// Get all conversations for the logged-in user
+// Get all conversations with unread message counts
 router.get("/conversations", async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -98,17 +98,44 @@ router.get("/conversations", async (req, res) => {
       orderBy: { updatedAt: "desc" },
     });
 
-    res.json({ success: true, conversations });
+    const conversationsWithUnreadCount = await Promise.all(
+      conversations.map(async (conversation) => {
+        const lastReadAt =
+          conversation.buyerId === userId
+            ? conversation.buyerLastReadAt
+            : conversation.sellerLastReadAt;
+
+        const unreadCount = await prisma.message.count({
+          where: {
+            conversationId: conversation.id,
+            senderId: { not: userId },
+            createdAt: {
+              gt: lastReadAt ?? new Date(0),
+            },
+          },
+        });
+
+        return {
+          ...conversation,
+          unreadCount,
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      conversations: conversationsWithUnreadCount,
+    });
   } catch (error) {
     console.error("Fetch conversations error:", error);
     res.status(500).json({
-      success: false,
+      success: true,
       message: "Failed to fetch conversations",
     });
   }
 });
 
-// Get messages from a conversation
+// Get messages and mark the conversation as read
 router.get("/conversations/:id/messages", async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -127,8 +154,21 @@ router.get("/conversations/:id/messages", async (req, res) => {
       });
     }
 
+    const readAt = new Date();
+
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data:
+        conversation.buyerId === userId
+          ? { buyerLastReadAt: readAt }
+          : { sellerLastReadAt: readAt },
+    });
+
     const messages = await prisma.message.findMany({
-      where: { conversationId: conversation.id },
+      where: {
+        conversationId: conversation.id,
+        createdAt: { lte: readAt },
+      },
       include: {
         sender: {
           select: { id: true, name: true },
@@ -137,7 +177,10 @@ router.get("/conversations/:id/messages", async (req, res) => {
       orderBy: { createdAt: "asc" },
     });
 
-    res.json({ success: true, messages });
+    res.json({
+      success: true,
+      messages,
+    });
   } catch (error) {
     console.error("Fetch messages error:", error);
     res.status(500).json({

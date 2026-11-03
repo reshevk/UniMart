@@ -25,6 +25,7 @@ export default function Chat({ user }) {
   const socketRef = useRef(null);
   const bottomRef = useRef(null);
 
+  // Connect socket and listen for incoming messages
   useEffect(() => {
     const token = localStorage.getItem("unimart_token");
 
@@ -43,7 +44,10 @@ export default function Chat({ user }) {
       console.error("Chat connection error:", err.message);
     });
 
-    socket.on("new_message", (newMessage) => {
+    socket.on("new_message", async (newMessage) => {
+      const isCurrentConversation =
+        newMessage.conversationId === conversationId;
+
       setConversations((previous) =>
         previous.map((conversation) =>
           conversation.id === newMessage.conversationId
@@ -51,18 +55,44 @@ export default function Chat({ user }) {
                 ...conversation,
                 messages: [newMessage],
                 updatedAt: newMessage.createdAt,
+                unreadCount:
+                  newMessage.senderId !== user?.id &&
+                  !isCurrentConversation
+                    ? (conversation.unreadCount || 0) + 1
+                    : conversation.unreadCount || 0,
               }
             : conversation
         )
       );
 
-      if (newMessage.conversationId === conversationId) {
-        setMessages((previous) => {
-          if (previous.some((message) => message.id === newMessage.id)) {
-            return previous;
-          }
-          return [...previous, newMessage];
-        });
+      if (isCurrentConversation) {
+        // Refresh messages so the backend also marks them as read.
+        try {
+          const response = await API.get(
+            `/chat/conversations/${conversationId}/messages`
+          );
+
+          setMessages(response.data.messages);
+
+          setConversations((previous) =>
+            previous.map((conversation) =>
+              conversation.id === conversationId
+                ? { ...conversation, unreadCount: 0 }
+                : conversation
+            )
+          );
+        } catch (err) {
+          console.error("Could not refresh messages:", err);
+        }
+      } else if (newMessage.senderId === user?.id) {
+        // The sender's own message should not be marked unread.
+        setConversations((previous) =>
+          previous.map((conversation) =>
+            conversation.id === newMessage.conversationId
+              ? { ...conversation, unreadCount: conversation.unreadCount || 0 }
+              : conversation
+          )
+        );
       }
     });
 
@@ -70,8 +100,9 @@ export default function Chat({ user }) {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [navigate, conversationId]);
+  }, [navigate, conversationId, user?.id]);
 
+  // Load conversations
   useEffect(() => {
     let cancelled = false;
 
@@ -83,7 +114,7 @@ export default function Chat({ user }) {
         const response = await API.get("/chat/conversations");
 
         if (!cancelled) {
-          setConversations(response.data.conversations);
+          setConversations(response.data.conversations || []);
         }
       } catch (err) {
         if (!cancelled) {
@@ -92,7 +123,9 @@ export default function Chat({ user }) {
           );
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
@@ -103,6 +136,7 @@ export default function Chat({ user }) {
     };
   }, [conversationId]);
 
+  // Start a conversation from a product
   useEffect(() => {
     if (!productId) return;
 
@@ -137,6 +171,7 @@ export default function Chat({ user }) {
     };
   }, [productId, navigate]);
 
+  // Load messages and mark the conversation as read
   useEffect(() => {
     if (!conversationId) {
       setMessages([]);
@@ -154,7 +189,15 @@ export default function Chat({ user }) {
         );
 
         if (!cancelled) {
-          setMessages(response.data.messages);
+          setMessages(response.data.messages || []);
+
+          setConversations((previous) =>
+            previous.map((conversation) =>
+              conversation.id === conversationId
+                ? { ...conversation, unreadCount: 0 }
+                : conversation
+            )
+          );
         }
       } catch (err) {
         if (!cancelled) {
@@ -173,6 +216,7 @@ export default function Chat({ user }) {
     };
   }, [conversationId]);
 
+  // Scroll to the latest message
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -209,6 +253,7 @@ export default function Chat({ user }) {
         if (previous.some((message) => message.id === sentMessage.id)) {
           return previous;
         }
+
         return [...previous, sentMessage];
       });
 
@@ -221,6 +266,7 @@ export default function Chat({ user }) {
                 ...conversation,
                 messages: [sentMessage],
                 updatedAt: sentMessage.createdAt,
+                unreadCount: 0,
               }
             : conversation
         )
@@ -293,6 +339,7 @@ export default function Chat({ user }) {
               conversations.map((conversation) => {
                 const person = getOtherPerson(conversation);
                 const active = conversation.id === conversationId;
+                const unreadCount = conversation.unreadCount || 0;
 
                 return (
                   <button
@@ -303,20 +350,38 @@ export default function Chat({ user }) {
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-[#18352a]">
+                      <span className="truncate font-semibold text-[#18352a]">
                         {person?.name || "Student"}
                       </span>
-                      <span className="text-xs text-gray-400">
-                        {conversation.updatedAt
-                          ? new Date(conversation.updatedAt).toLocaleDateString()
-                          : ""}
-                      </span>
+
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="text-xs text-gray-400">
+                          {conversation.updatedAt
+                            ? new Date(
+                                conversation.updatedAt
+                              ).toLocaleDateString()
+                            : ""}
+                        </span>
+
+                        {unreadCount > 0 && (
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#16865a] px-1.5 text-[10px] font-bold text-white">
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <p className="mt-1 truncate text-sm text-gray-500">
                       {conversation.product?.title}
                     </p>
-                    <p className="mt-1 truncate text-xs text-gray-400">
+
+                    <p
+                      className={`mt-1 truncate text-xs ${
+                        unreadCount > 0
+                          ? "font-semibold text-[#18352a]"
+                          : "text-gray-400"
+                      }`}
+                    >
                       {getLastMessage(conversation)}
                     </p>
                   </button>
@@ -348,9 +413,11 @@ export default function Chat({ user }) {
                   <h2 className="font-bold text-[#18352a]">
                     {otherPerson?.name || "Student"}
                   </h2>
+
                   <p className="flex items-center gap-1 truncate text-xs text-gray-500">
                     <Package size={13} />
-                    {activeConversation?.product?.title || "Product conversation"}
+                    {activeConversation?.product?.title ||
+                      "Product conversation"}
                   </p>
                 </div>
               </div>
@@ -362,7 +429,9 @@ export default function Chat({ user }) {
                   return (
                     <div
                       key={message.id}
-                      className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                      className={`flex ${
+                        mine ? "justify-end" : "justify-start"
+                      }`}
                     >
                       <div
                         className={`max-w-[80%] rounded-2xl px-4 py-3 ${
@@ -374,6 +443,7 @@ export default function Chat({ user }) {
                         <p className="whitespace-pre-wrap break-words text-sm">
                           {message.content}
                         </p>
+
                         <p
                           className={`mt-1 text-right text-[10px] ${
                             mine ? "text-green-100" : "text-gray-400"
