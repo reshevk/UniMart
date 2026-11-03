@@ -10,15 +10,15 @@ router.post("/conversations", async (req, res) => {
     const { productId } = req.body;
     const buyerId = req.user.userId;
 
-    if (!productId) {
+    if (typeof productId !== "string" || !productId.trim()) {
       return res.status(400).json({
         success: false,
-        message: "Product ID is required",
+        message: "A valid product ID is required",
       });
     }
 
     const product = await prisma.product.findUnique({
-      where: { id: productId },
+      where: { id: productId.trim() },
       include: { seller: true },
     });
 
@@ -39,13 +39,13 @@ router.post("/conversations", async (req, res) => {
     const conversation = await prisma.conversation.upsert({
       where: {
         productId_buyerId: {
-          productId,
+          productId: product.id,
           buyerId,
         },
       },
       update: {},
       create: {
-        productId,
+        productId: product.id,
         buyerId,
         sellerId: product.sellerId,
       },
@@ -129,7 +129,7 @@ router.get("/conversations", async (req, res) => {
   } catch (error) {
     console.error("Fetch conversations error:", error);
     res.status(500).json({
-      success: true,
+      success: false,
       message: "Failed to fetch conversations",
     });
   }
@@ -238,12 +238,14 @@ router.post("/conversations/:id/messages", async (req, res) => {
 
     const io = req.app.get("io");
 
-    io.to(`user:${conversation.buyerId}`)
-      .to(`user:${conversation.sellerId}`)
-      .emit("new_message", {
-        ...message,
-        conversationId: conversation.id,
-      });
+    if (io) {
+      io.to(`user:${conversation.buyerId}`)
+        .to(`user:${conversation.sellerId}`)
+        .emit("new_message", {
+          ...message,
+          conversationId: conversation.id,
+        });
+    }
 
     res.status(201).json({
       success: true,

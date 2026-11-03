@@ -433,90 +433,95 @@ function Home({ user, onLogout }) {
               </p>
 
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                {filteredProducts.map((product) => (
-                  <article
-                    key={product.id}
-                    role="link"
-                    tabIndex={0}
-                    onClick={() => openProduct(product.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        openProduct(product.id);
-                      }
-                    }}
-                    className="group cursor-pointer overflow-hidden rounded-3xl border border-white bg-white/75 shadow-sm backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-xl"
-                  >
-                    <div className="relative flex h-56 items-center justify-center overflow-hidden bg-green-50">
-                      {product.imageUrl ? (
-                        <img
-                          src={product.imageUrl}
-                          alt={product.title}
-                          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center gap-2 text-green-700/50">
-                          <ImageOff size={38} />
-                          <span className="text-xs font-medium">
-                            No image available
-                          </span>
-                        </div>
-                      )}
+                {filteredProducts.map((product) => {
+                  const coverImage =
+                    product.imageUrls?.[0] || product.imageUrl;
 
-                      <span className="absolute left-3 top-3 rounded-full border border-white/60 bg-white/80 px-3 py-1.5 text-xs font-semibold text-green-800 backdrop-blur-xl">
-                        {product.condition}
-                      </span>
+                  return (
+                    <article
+                      key={product.id}
+                      role="link"
+                      tabIndex={0}
+                      onClick={() => openProduct(product.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          openProduct(product.id);
+                        }
+                      }}
+                      className="group cursor-pointer overflow-hidden rounded-3xl border border-white bg-white/75 shadow-sm backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-xl"
+                    >
+                      <div className="relative flex h-56 items-center justify-center overflow-hidden bg-green-50">
+                        {coverImage ? (
+                          <img
+                            src={coverImage}
+                            alt={product.title}
+                            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center gap-2 text-green-700/50">
+                            <ImageOff size={38} />
+                            <span className="text-xs font-medium">
+                              No image available
+                            </span>
+                          </div>
+                        )}
 
-                      <button
-                        aria-label="Toggle wishlist"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleWishlist(product.id);
-                        }}
-                        className="absolute right-3 top-3 rounded-full bg-white/80 p-2 text-gray-600 backdrop-blur-xl hover:text-red-500"
-                      >
-                        <Heart
-                          size={18}
-                          className={
-                            wishlistIds.includes(product.id)
-                              ? "fill-red-500 text-red-500"
-                              : ""
-                          }
-                        />
-                      </button>
-                    </div>
-
-                    <div className="p-5">
-                      <p className="text-xs font-medium uppercase tracking-wider text-green-700">
-                        {product.category}
-                      </p>
-
-                      <h3 className="mt-2 break-words text-lg font-bold">
-                        {product.title}
-                      </h3>
-
-                      <p className="mt-1 text-sm text-gray-500">
-                        Seller: {product.seller?.name || "Student"}
-                      </p>
-
-                      <div className="mt-5 flex items-center justify-between">
-                        <span className="text-xl font-bold text-green-800">
-                          ₹{Number(product.price).toLocaleString("en-IN")}
+                        <span className="absolute left-3 top-3 rounded-full border border-white/60 bg-white/80 px-3 py-1.5 text-xs font-semibold text-green-800 backdrop-blur-xl">
+                          {product.condition}
                         </span>
 
                         <button
-                          aria-label={`Chat with seller of ${product.title}`}
+                          aria-label="Toggle wishlist"
                           onClick={(e) => {
                             e.stopPropagation();
-                            openChat(product.id);
+                            toggleWishlist(product.id);
                           }}
-                          className="rounded-xl bg-green-100 p-2.5 text-green-800 hover:bg-green-700 hover:text-white"
+                          className="absolute right-3 top-3 rounded-full bg-white/80 p-2 text-gray-600 backdrop-blur-xl hover:text-red-500"
                         >
-                          <MessageCircle size={19} />
+                          <Heart
+                            size={18}
+                            className={
+                              wishlistIds.includes(product.id)
+                                ? "fill-red-500 text-red-500"
+                                : ""
+                            }
+                          />
                         </button>
                       </div>
-                    </div>
-                  </article>
-                ))}
+
+                      <div className="p-5">
+                        <p className="text-xs font-medium uppercase tracking-wider text-green-700">
+                          {product.category}
+                        </p>
+
+                        <h3 className="mt-2 break-words text-lg font-bold">
+                          {product.title}
+                        </h3>
+
+                        <p className="mt-1 text-sm text-gray-500">
+                          Seller: {product.seller?.name || "Student"}
+                        </p>
+
+                        <div className="mt-5 flex items-center justify-between">
+                          <span className="text-xl font-bold text-green-800">
+                            ₹{Number(product.price).toLocaleString("en-IN")}
+                          </span>
+
+                          <button
+                            aria-label={`Chat with seller of ${product.title}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openChat(product.id);
+                            }}
+                            className="rounded-xl bg-green-100 p-2.5 text-green-800 hover:bg-green-700 hover:text-white"
+                          >
+                            <MessageCircle size={19} />
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             </>
           )}
@@ -769,10 +774,7 @@ function App() {
           }
         />
 
-        <Route
-          path="/wishlist"
-          element={<Wishlist />}
-        />
+        <Route path="/wishlist" element={<Wishlist />} />
 
         <Route
           path="/chat"

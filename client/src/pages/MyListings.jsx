@@ -1,7 +1,14 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Package, Pencil, Trash2, X, Check } from "lucide-react";
+import {
+  ArrowLeft,
+  Package,
+  Pencil,
+  Trash2,
+  X,
+  Check,
+} from "lucide-react";
 import API from "../api";
 
 export default function MyListings() {
@@ -76,7 +83,11 @@ export default function MyListings() {
   }
 
   async function deleteListing(id) {
-    if (!window.confirm("Are you sure you want to permanently delete this listing?")) {
+    if (
+      !window.confirm(
+        "Are you sure you want to permanently delete this listing?"
+      )
+    ) {
       return;
     }
 
@@ -149,6 +160,15 @@ export default function MyListings() {
             {products.map((product) => {
               const isEditing = editingId === product.id;
 
+              const productImages = Array.from(
+                new Set([
+                  ...(Array.isArray(product.imageUrls)
+                    ? product.imageUrls
+                    : []),
+                  ...(product.imageUrl ? [product.imageUrl] : []),
+                ])
+              );
+
               return (
                 <article
                   key={product.id}
@@ -179,6 +199,7 @@ export default function MyListings() {
                           <span className="mb-1 block text-sm font-medium text-gray-600">
                             {label}
                           </span>
+
                           {name === "description" ? (
                             <textarea
                               name={name}
@@ -209,15 +230,40 @@ export default function MyListings() {
                     </div>
                   ) : (
                     <div className="flex flex-col gap-5 sm:flex-row">
-                      <div className="flex h-36 w-full shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-green-50 sm:w-40">
-                        {product.imageUrl ? (
-                          <img
-                            src={product.imageUrl}
-                            alt={product.title}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <Package size={36} className="text-green-700/50" />
+                      <div className="w-full shrink-0 sm:w-40">
+                        <div className="flex h-36 items-center justify-center overflow-hidden rounded-2xl bg-green-50">
+                          {productImages.length > 0 ? (
+                            <img
+                              src={productImages[0]}
+                              alt={product.title}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Package
+                              size={36}
+                              className="text-green-700/50"
+                            />
+                          )}
+                        </div>
+
+                        {productImages.length > 1 && (
+                          <div className="mt-2 grid grid-cols-4 gap-1">
+                            {productImages.slice(1, 5).map((image, index) => (
+                              <img
+                                key={image}
+                                src={image}
+                                alt={`${product.title} image ${index + 2}`}
+                                className="h-9 w-full rounded-md object-cover"
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {productImages.length > 0 && (
+                          <p className="mt-1 text-center text-xs text-gray-500">
+                            {productImages.length} image
+                            {productImages.length !== 1 ? "s" : ""}
+                          </p>
                         )}
                       </div>
 
@@ -226,6 +272,7 @@ export default function MyListings() {
                           <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-800">
                             {product.category}
                           </span>
+
                           <span
                             className={`rounded-full px-3 py-1 text-xs font-semibold ${
                               product.status === "SOLD"
@@ -233,7 +280,9 @@ export default function MyListings() {
                                 : "bg-green-100 text-green-800"
                             }`}
                           >
-                            {product.status === "SOLD" ? "Sold" : "Available"}
+                            {product.status === "SOLD"
+                              ? "Sold"
+                              : "Available"}
                           </span>
                         </div>
 
@@ -262,7 +311,10 @@ export default function MyListings() {
                             onClick={() => changeStatus(product)}
                             className="rounded-xl bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800"
                           >
-                            Mark as {product.status === "SOLD" ? "Available" : "Sold"}
+                            Mark as{" "}
+                            {product.status === "SOLD"
+                              ? "Available"
+                              : "Sold"}
                           </button>
 
                           <button

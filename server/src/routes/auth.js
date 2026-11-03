@@ -1,4 +1,4 @@
-
+import expressRateLimit from "express-rate-limit";
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -16,48 +16,17 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// In-memory rate limiter
-const rateLimitStore = new Map();
-
 function rateLimit(windowMs, maxRequests, message) {
-  return (req, res, next) => {
-    const now = Date.now();
-    const key = `${req.path}:${req.ip}`;
-
-    for (const [storedKey, value] of rateLimitStore) {
-      if (now - value.startTime >= windowMs) {
-        rateLimitStore.delete(storedKey);
-      }
-    }
-
-    let record = rateLimitStore.get(key);
-
-    if (!record || now - record.startTime >= windowMs) {
-      record = {
-        startTime: now,
-        count: 0,
-      };
-    }
-
-    record.count++;
-
-    rateLimitStore.set(key, record);
-
-    if (record.count > maxRequests) {
-      const retryAfter = Math.ceil(
-        (windowMs - (now - record.startTime)) / 1000
-      );
-
-      res.set("Retry-After", String(retryAfter));
-
-      return res.status(429).json({
-        success: false,
-        message,
-      });
-    }
-
-    next();
-  };
+  return expressRateLimit({
+    windowMs,
+    limit: maxRequests,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    message: {
+      success: false,
+      message,
+    },
+  });
 }
 
 function createToken(user) {
@@ -106,12 +75,12 @@ router.post(
         });
       }
 
-     if (password.length < 8 || password.length > 128) {
-  return res.status(400).json({
-    success: false,
-    message: "Password must be between 8 and 128 characters",
-  });
-}
+      if (password.length < 8 || password.length > 128) {
+        return res.status(400).json({
+          success: false,
+          message: "Password must be between 8 and 128 characters",
+        });
+      }
 
       const existingUser = await prisma.user.findUnique({
         where: { email: normalizedEmail },

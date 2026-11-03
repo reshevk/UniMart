@@ -1,6 +1,8 @@
 
 import { v2 as cloudinary } from "cloudinary";
 import express from "express";
+import multer from "multer";
+import { fileTypeFromBuffer } from "file-type";
 import { prisma } from "../lib/prisma.js";
 import { authenticateToken } from "../middleware/auth.js";
 
@@ -12,41 +14,51 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Generate Cloudinary signed upload details
-router.post("/upload-signature", authenticateToken, (req, res) => {
-  try {
-    const timestamp = Math.floor(Date.now() / 1000);
+const MAX_IMAGES = 5;
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-    const paramsToSign = {
-      timestamp,
-      upload_preset: "unimart_signed",
-    };
-
-    const signature = cloudinary.utils.api_sign_request(
-      paramsToSign,
-      process.env.CLOUDINARY_API_SECRET
-    );
-
-    res.json({
-      success: true,
-      timestamp,
-      signature,
-      apiKey: process.env.CLOUDINARY_API_KEY,
-      cloudName: process.env.CLOUDINARY_CLOUD_NAME,
-      uploadPreset: "unimart_signed",
-    });
-  } catch (error) {
-    console.error("Cloudinary signature error:", error.message);
-
-    res.status(500).json({
-      success: false,
-      message: "Unable to authorize image upload",
-    });
-  }
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+    files: MAX_IMAGES,
+  },
 });
+
+const handleImageUpload = (req, res, next) => {
+  upload.array("images", MAX_IMAGES)(req, res, (error) => {
+    if (error instanceof multer.MulterError) {
+      const status =
+        error.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+
+      return res.status(status).json({
+        success: false,
+        message:
+          error.code === "LIMIT_FILE_SIZE"
+            ? "Each image must be 5 MB or smaller."
+            : "Invalid image upload. You can upload up to 5 images.",
+      });
+    }
+
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: "Unable to process image upload.",
+      });
+    }
+
+    next();
+  });
+};
 
 const CLOUDINARY_HOST = "res.cloudinary.com";
 const CLOUDINARY_CLOUD = "vibzzs2e";
+
+const ALLOWED_IMAGE_TYPES = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
 
 function normalizeWhatsapp(number) {
   if (number === undefined || number === null || number === "") {
@@ -66,10 +78,6 @@ function normalizeWhatsapp(number) {
 }
 
 function isValidImageUrl(url) {
-  if (url === undefined || url === null || url === "") {
-    return true;
-  }
-
   if (typeof url !== "string" || url.length > 2048) {
     return false;
   }
@@ -80,14 +88,29 @@ function isValidImageUrl(url) {
     return (
       parsed.protocol === "https:" &&
       parsed.hostname === CLOUDINARY_HOST &&
-      parsed.pathname.startsWith(`/${CLOUDINARY_CLOUD}/image/upload/`)
+      parsed.pathname.startsWith(
+        `/${CLOUDINARY_CLOUD}/image/upload/`
+      )
     );
   } catch {
     return false;
   }
 }
 
-function validateProductFields({ title, description, category, condition }) {
+function validateImageUrls(imageUrls) {
+  return (
+    Array.isArray(imageUrls) &&
+    imageUrls.length <= MAX_IMAGES &&
+    imageUrls.every(isValidImageUrl)
+  );
+}
+
+function validateProductFields({
+  title,
+  description,
+  category,
+  condition,
+}) {
   return (
     typeof title === "string" &&
     title.trim().length >= 3 &&
@@ -104,6 +127,80 @@ function validateProductFields({ title, description, category, condition }) {
   );
 }
 
+// Upload multiple images securely to Cloudinary
+router.post(
+  "/upload",
+  authenticateToken,
+  handleImageUpload,
+  async (req, res) => {
+    try {
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Please select at least one image.",
+        });
+      }
+
+      const validatedFiles = [];
+
+      // Validate every image before uploading any of them
+      for (const file of req.files) {
+        const fileType = await fileTypeFromBuffer(file.buffer);
+
+        if (
+          !fileType ||
+          ALLOWED_IMAGE_TYPES[fileType.mime] !== fileType.ext
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Only valid JPG, PNG, and WebP images are allowed.",
+          });
+        }
+
+        validatedFiles.push(file);
+      }
+
+      const imageUrls = [];
+
+      // Upload validated images to Cloudinary
+      for (const file of validatedFiles) {
+        const result = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            {
+              folder: "unimart",
+              resource_type: "image",
+            },
+            (error, uploadedImage) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve(uploadedImage);
+              }
+            }
+          );
+
+          stream.end(file.buffer);
+        });
+
+        imageUrls.push(result.secure_url);
+      }
+
+      return res.status(200).json({
+        success: true,
+        imageUrls,
+      });
+    } catch (error) {
+      console.error("Image upload error:", error.message);
+
+      return res.status(500).json({
+        success: false,
+        message: "Image upload failed. Please try again.",
+      });
+    }
+  }
+);
+
 // Create a listing
 router.post("/", authenticateToken, async (req, res) => {
   try {
@@ -114,6 +211,7 @@ router.post("/", authenticateToken, async (req, res) => {
       category,
       condition,
       imageUrl,
+      imageUrls,
       sellerWhatsapp,
     } = req.body;
 
@@ -138,14 +236,24 @@ router.post("/", authenticateToken, async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Price must be greater than zero and no more than 10000000",
+          "Price must be greater than zero and no more than 10000000.",
       });
     }
 
-    if (!isValidImageUrl(imageUrl)) {
+    const finalImageUrls =
+      imageUrls !== undefined
+        ? imageUrls
+        : imageUrl
+          ? [imageUrl]
+          : [];
+
+    if (
+      !validateImageUrls(finalImageUrls) ||
+      (imageUrl && !isValidImageUrl(imageUrl))
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Please upload a valid product image",
+        message: "Please provide valid product images.",
       });
     }
 
@@ -154,7 +262,8 @@ router.post("/", authenticateToken, async (req, res) => {
     if (whatsapp === undefined) {
       return res.status(400).json({
         success: false,
-        message: "Please enter a valid 10-digit Indian WhatsApp number",
+        message:
+          "Please enter a valid 10-digit Indian WhatsApp number.",
       });
     }
 
@@ -165,23 +274,24 @@ router.post("/", authenticateToken, async (req, res) => {
         price: numericPrice,
         category: category.trim(),
         condition: condition.trim(),
-        imageUrl: imageUrl || null,
+        imageUrl: finalImageUrls[0] || null,
+        imageUrls: finalImageUrls,
         sellerWhatsapp: whatsapp,
         sellerId: req.user.userId,
       },
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: "Product listed successfully",
+      message: "Product listed successfully.",
       product,
     });
   } catch (error) {
     console.error("Create product error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Failed to create product",
+      message: "Failed to create product.",
     });
   }
 });
@@ -199,13 +309,13 @@ router.get("/", async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    res.json({ success: true, products });
+    return res.json({ success: true, products });
   } catch (error) {
     console.error("Fetch products error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Failed to fetch products",
+      message: "Failed to fetch products.",
     });
   }
 });
@@ -218,13 +328,13 @@ router.get("/my-listings", authenticateToken, async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    res.json({ success: true, products });
+    return res.json({ success: true, products });
   } catch (error) {
     console.error("Fetch my listings error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Failed to fetch your listings",
+      message: "Failed to fetch your listings.",
     });
   }
 });
@@ -241,6 +351,7 @@ router.patch("/:id", authenticateToken, async (req, res) => {
       category,
       condition,
       imageUrl,
+      imageUrls,
       sellerWhatsapp,
       status,
     } = req.body;
@@ -255,7 +366,7 @@ router.patch("/:id", authenticateToken, async (req, res) => {
     if (!existingProduct) {
       return res.status(404).json({
         success: false,
-        message: "Listing not found or you are not its owner",
+        message: "Listing not found or you are not its owner.",
       });
     }
 
@@ -269,7 +380,7 @@ router.patch("/:id", authenticateToken, async (req, res) => {
       ) {
         return res.status(400).json({
           success: false,
-          message: "Title must be between 3 and 100 characters",
+          message: "Title must be between 3 and 100 characters.",
         });
       }
 
@@ -284,7 +395,7 @@ router.patch("/:id", authenticateToken, async (req, res) => {
       ) {
         return res.status(400).json({
           success: false,
-          message: "Description must be between 10 and 2000 characters",
+          message: "Description must be between 10 and 2000 characters.",
         });
       }
 
@@ -304,7 +415,7 @@ router.patch("/:id", authenticateToken, async (req, res) => {
         return res.status(400).json({
           success: false,
           message:
-            "Price must be greater than zero and no more than 10000000",
+            "Price must be greater than zero and no more than 10000000.",
         });
       }
 
@@ -319,7 +430,7 @@ router.patch("/:id", authenticateToken, async (req, res) => {
       ) {
         return res.status(400).json({
           success: false,
-          message: "Invalid category",
+          message: "Invalid category.",
         });
       }
 
@@ -334,22 +445,33 @@ router.patch("/:id", authenticateToken, async (req, res) => {
       ) {
         return res.status(400).json({
           success: false,
-          message: "Invalid condition",
+          message: "Invalid condition.",
         });
       }
 
       data.condition = condition.trim();
     }
 
-    if (imageUrl !== undefined) {
-      if (!isValidImageUrl(imageUrl)) {
+    if (imageUrls !== undefined || imageUrl !== undefined) {
+      const finalImageUrls =
+        imageUrls !== undefined
+          ? imageUrls
+          : imageUrl
+            ? [imageUrl]
+            : [];
+
+      if (
+        !validateImageUrls(finalImageUrls) ||
+        (imageUrl && !isValidImageUrl(imageUrl))
+      ) {
         return res.status(400).json({
           success: false,
-          message: "Please upload a valid product image",
+          message: "Please provide valid product images.",
         });
       }
 
-      data.imageUrl = imageUrl || null;
+      data.imageUrls = finalImageUrls;
+      data.imageUrl = finalImageUrls[0] || null;
     }
 
     if (sellerWhatsapp !== undefined) {
@@ -358,7 +480,8 @@ router.patch("/:id", authenticateToken, async (req, res) => {
       if (whatsapp === undefined) {
         return res.status(400).json({
           success: false,
-          message: "Please enter a valid 10-digit Indian WhatsApp number",
+          message:
+            "Please enter a valid 10-digit Indian WhatsApp number.",
         });
       }
 
@@ -369,7 +492,7 @@ router.patch("/:id", authenticateToken, async (req, res) => {
       if (!["AVAILABLE", "SOLD"].includes(status)) {
         return res.status(400).json({
           success: false,
-          message: "Invalid listing status",
+          message: "Invalid listing status.",
         });
       }
 
@@ -379,7 +502,7 @@ router.patch("/:id", authenticateToken, async (req, res) => {
     if (Object.keys(data).length === 0) {
       return res.status(400).json({
         success: false,
-        message: "No valid changes provided",
+        message: "No valid changes provided.",
       });
     }
 
@@ -388,17 +511,17 @@ router.patch("/:id", authenticateToken, async (req, res) => {
       data,
     });
 
-    res.json({
+    return res.json({
       success: true,
-      message: "Listing updated successfully",
+      message: "Listing updated successfully.",
       product,
     });
   } catch (error) {
     console.error("Update product error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Failed to update listing",
+      message: "Failed to update listing.",
     });
   }
 });
@@ -418,7 +541,7 @@ router.delete("/:id", authenticateToken, async (req, res) => {
     if (!product) {
       return res.status(404).json({
         success: false,
-        message: "Listing not found or you are not its owner",
+        message: "Listing not found or you are not its owner.",
       });
     }
 
@@ -426,16 +549,16 @@ router.delete("/:id", authenticateToken, async (req, res) => {
       where: { id },
     });
 
-    res.json({
+    return res.json({
       success: true,
-      message: "Listing deleted successfully",
+      message: "Listing deleted successfully.",
     });
   } catch (error) {
     console.error("Delete product error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Failed to delete listing",
+      message: "Failed to delete listing.",
     });
   }
 });

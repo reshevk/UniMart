@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
+  ArrowRight,
   Package,
   User,
   Tag,
@@ -15,6 +16,7 @@ function ProductDetails() {
   const navigate = useNavigate();
 
   const [product, setProduct] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -32,6 +34,7 @@ function ProductDetails() {
           setError("This product could not be found.");
         } else {
           setProduct(foundProduct);
+          setSelectedImage(0);
         }
       } catch (err) {
         setError("Unable to load product details. Please try again.");
@@ -43,6 +46,15 @@ function ProductDetails() {
     fetchProduct();
   }, [id]);
 
+  const productImages = product
+    ? Array.from(
+        new Set([
+          ...(Array.isArray(product.imageUrls) ? product.imageUrls : []),
+          ...(product.imageUrl ? [product.imageUrl] : []),
+        ])
+      )
+    : [];
+
   function contactSeller() {
     if (!product?.sellerWhatsapp) return;
 
@@ -50,6 +62,18 @@ function ProductDetails() {
     const url = `https://wa.me/${product.sellerWhatsapp}?text=${encodeURIComponent(message)}`;
 
     window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function showPreviousImage() {
+    setSelectedImage((current) =>
+      current === 0 ? productImages.length - 1 : current - 1
+    );
+  }
+
+  function showNextImage() {
+    setSelectedImage((current) =>
+      current === productImages.length - 1 ? 0 : current + 1
+    );
   }
 
   async function startChat() {
@@ -115,15 +139,70 @@ function ProductDetails() {
       </button>
 
       <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-10">
-        <div className="rounded-3xl bg-white/70 border border-green-100 overflow-hidden min-h-80 flex items-center justify-center">
-          {product.imageUrl ? (
-            <img
-              src={product.imageUrl}
-              alt={product.title}
-              className="w-full h-full min-h-80 object-cover"
-            />
-          ) : (
-            <Package size={80} className="text-green-200" />
+        <div>
+          <div className="relative rounded-3xl bg-white/70 border border-green-100 overflow-hidden min-h-80 flex items-center justify-center">
+            {productImages.length > 0 ? (
+              <>
+                <img
+                  src={productImages[selectedImage]}
+                  alt={`${product.title} - Image ${selectedImage + 1}`}
+                  className="w-full h-80 object-contain"
+                />
+
+                {productImages.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={showPreviousImage}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-green-800 shadow-md hover:bg-white"
+                      aria-label="Previous image"
+                    >
+                      <ArrowLeft size={20} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={showNextImage}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-green-800 shadow-md hover:bg-white"
+                      aria-label="Next image"
+                    >
+                      <ArrowRight size={20} />
+                    </button>
+
+                    <span className="absolute bottom-3 right-3 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white">
+                      {selectedImage + 1} / {productImages.length}
+                    </span>
+                  </>
+                )}
+              </>
+            ) : (
+              <Package size={80} className="text-green-200" />
+            )}
+          </div>
+
+          {productImages.length > 1 && (
+            <div className="mt-4 grid grid-cols-5 gap-3">
+              {productImages.map((image, index) => (
+                <button
+                  key={image}
+                  type="button"
+                  onClick={() => setSelectedImage(index)}
+                  className={`overflow-hidden rounded-xl border-2 transition ${
+                    selectedImage === index
+                      ? "border-green-600"
+                      : "border-transparent hover:border-green-300"
+                  }`}
+                  aria-label={`View image ${index + 1}`}
+                  aria-pressed={selectedImage === index}
+                >
+                  <img
+                    src={image}
+                    alt={`${product.title} thumbnail ${index + 1}`}
+                    className="h-16 w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
           )}
         </div>
 

@@ -13,6 +13,10 @@ import {
 } from "lucide-react";
 import API from "../api";
 
+const MAX_IMAGES = 5;
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
 function SellItem() {
   const navigate = useNavigate();
 
@@ -25,22 +29,25 @@ function SellItem() {
     sellerWhatsapp: "",
   });
 
-  const [image, setImage] = useState(null);
-  const [preview, setPreview] = useState("");
+  const [images, setImages] = useState([]);
+  const [previews, setPreviews] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!image) {
-      setPreview("");
-      return;
-    }
+    const imagePreviews = images.map((image) => ({
+      file: image,
+      url: URL.createObjectURL(image),
+    }));
 
-    const imageUrl = URL.createObjectURL(image);
-    setPreview(imageUrl);
+    setPreviews(imagePreviews);
 
-    return () => URL.revokeObjectURL(imageUrl);
-  }, [image]);
+    return () => {
+      imagePreviews.forEach((preview) =>
+        URL.revokeObjectURL(preview.url)
+      );
+    };
+  }, [images]);
 
   function handleChange(e) {
     setFormData({
@@ -50,65 +57,78 @@ function SellItem() {
   }
 
   function handleImageChange(e) {
-    const selectedImage = e.target.files?.[0];
+    const selectedImages = Array.from(e.target.files || []);
 
-    if (!selectedImage) return;
+    if (selectedImages.length === 0) return;
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    const remainingSlots = MAX_IMAGES - images.length;
 
-    if (!allowedTypes.includes(selectedImage.type)) {
-      setMessage("Please select a JPG, PNG or WebP image.");
+    if (remainingSlots <= 0) {
+      setMessage("You can upload a maximum of 5 images.");
       e.target.value = "";
       return;
     }
 
-    if (selectedImage.size > 5 * 1024 * 1024) {
-      setMessage("Image size must be less than 5 MB.");
+    if (selectedImages.length > remainingSlots) {
+      setMessage(
+        `You can select only ${remainingSlots} more image(s).`
+      );
       e.target.value = "";
       return;
     }
+
+    for (const image of selectedImages) {
+      if (!ALLOWED_TYPES.includes(image.type)) {
+        setMessage("Please select only JPG, PNG or WebP images.");
+        e.target.value = "";
+        return;
+      }
+
+      if (image.size > MAX_FILE_SIZE) {
+        setMessage("Each image must be 5 MB or smaller.");
+        e.target.value = "";
+        return;
+      }
+    }
+
+    setImages((previousImages) => [
+      ...previousImages,
+      ...selectedImages,
+    ]);
 
     setMessage("");
-    setImage(selectedImage);
+    e.target.value = "";
   }
 
-  async function uploadImage() {
-    const signatureResponse = await API.post(
-      "/products/upload-signature"
+  function removeImage(index) {
+    setImages((previousImages) =>
+      previousImages.filter((_, i) => i !== index)
     );
+    setMessage("");
+  }
 
-    const {
-      timestamp,
-      signature,
-      apiKey,
-      cloudName,
-      uploadPreset,
-    } = signatureResponse.data;
-
+  async function uploadImages() {
     const imageData = new FormData();
-    imageData.append("file", image);
-    imageData.append("timestamp", timestamp);
-    imageData.append("api_key", apiKey);
-    imageData.append("signature", signature);
-    imageData.append("upload_preset", uploadPreset);
 
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-      {
-        method: "POST",
-        body: imageData,
-      }
+    images.forEach((image) => {
+      imageData.append("images", image);
+    });
+
+    const response = await API.post(
+      "/products/upload",
+      imageData
     );
 
-    const data = await response.json();
+    const imageUrls = response.data.imageUrls;
 
-    if (!response.ok) {
-      throw new Error(
-        data.error?.message || "Image upload failed."
-      );
+    if (
+      !Array.isArray(imageUrls) ||
+      imageUrls.length !== images.length
+    ) {
+      throw new Error("Image upload returned an invalid response.");
     }
 
-    return data.secure_url;
+    return imageUrls;
   }
 
   async function handleSubmit(e) {
@@ -129,11 +149,11 @@ function SellItem() {
     setLoading(true);
 
     try {
-      let imageUrl = "";
+      let imageUrls = [];
 
-      if (image) {
-        setMessage("Uploading your image... Please wait.");
-        imageUrl = await uploadImage();
+      if (images.length > 0) {
+        setMessage("Uploading your images... Please wait.");
+        imageUrls = await uploadImages();
       }
 
       setMessage("Publishing your listing...");
@@ -141,7 +161,7 @@ function SellItem() {
       const response = await API.post("/products", {
         ...formData,
         price: Number(formData.price),
-        imageUrl,
+        imageUrls,
       });
 
       setMessage(response.data.message);
@@ -325,52 +345,80 @@ function SellItem() {
 
             <div>
               <label className="mb-2 block text-sm font-semibold">
-                Product Image (Optional)
+                Product Images (Optional)
               </label>
 
-              {preview ? (
-                <div className="relative overflow-hidden rounded-2xl border border-green-200 bg-green-50 p-3">
-                  <img
-                    src={preview}
-                    alt="Product preview"
-                    className="mx-auto max-h-64 rounded-xl object-contain"
-                  />
+              <div className="rounded-2xl border-2 border-dashed border-green-200 bg-green-50/50 p-5">
+                {previews.length > 0 && (
+                  <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
+                    {previews.map((preview, index) => (
+                      <div
+                        key={`${preview.file.name}-${index}`}
+                        className="relative overflow-hidden rounded-xl border border-green-200 bg-white p-2"
+                      >
+                        <img
+                          src={preview.url}
+                          alt={`Product preview ${index + 1}`}
+                          className="h-32 w-full rounded-lg object-cover"
+                        />
 
-                  <button
-                    type="button"
-                    onClick={() => setImage(null)}
-                    disabled={loading}
-                    className="absolute right-5 top-5 rounded-full bg-white p-2 text-red-600 shadow hover:bg-red-50"
-                    aria-label="Remove image"
-                  >
-                    <X size={18} />
-                  </button>
+                        {index === 0 && (
+                          <span className="mt-2 block text-center text-xs font-semibold text-green-800">
+                            Cover image
+                          </span>
+                        )}
 
-                  <p className="mt-2 text-center text-sm text-green-800">
-                    {image?.name}
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          disabled={loading}
+                          className="absolute right-3 top-3 rounded-full bg-white p-2 text-red-600 shadow hover:bg-red-50 disabled:opacity-50"
+                          aria-label={`Remove image ${index + 1}`}
+                        >
+                          <X size={16} />
+                        </button>
+
+                        <p className="mt-1 truncate text-center text-xs text-gray-500">
+                          {preview.file.name}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {images.length < MAX_IMAGES && (
+                  <label className="flex cursor-pointer flex-col items-center p-4 text-center transition hover:bg-green-50">
+                    <ImagePlus size={34} className="mb-3 text-green-700" />
+
+                    <span className="font-semibold text-gray-700">
+                      Click to add product images
+                    </span>
+
+                    <span className="mt-2 text-xs text-gray-500">
+                      JPG, PNG or WebP · Maximum 5 MB each
+                    </span>
+
+                    <span className="mt-1 text-xs font-medium text-green-800">
+                      {images.length} of {MAX_IMAGES} images selected
+                    </span>
+
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      onChange={handleImageChange}
+                      className="hidden"
+                      disabled={loading}
+                    />
+                  </label>
+                )}
+
+                {images.length === MAX_IMAGES && (
+                  <p className="text-center text-sm font-medium text-green-800">
+                    Maximum of 5 images selected.
                   </p>
-                </div>
-              ) : (
-                <label className="flex cursor-pointer flex-col items-center rounded-2xl border-2 border-dashed border-green-200 bg-green-50/50 p-8 text-center transition hover:bg-green-50">
-                  <ImagePlus size={34} className="mb-3 text-green-700" />
-
-                  <span className="font-semibold text-gray-700">
-                    Click to select a product image
-                  </span>
-
-                  <span className="mt-2 text-xs text-gray-500">
-                    JPG, PNG or WebP · Maximum 5 MB
-                  </span>
-
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={handleImageChange}
-                    className="hidden"
-                    disabled={loading}
-                  />
-                </label>
-              )}
+                )}
+              </div>
             </div>
 
             <button
@@ -388,3 +436,4 @@ function SellItem() {
 }
 
 export default SellItem;
+
