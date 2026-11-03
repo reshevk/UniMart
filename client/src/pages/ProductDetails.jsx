@@ -17,6 +17,8 @@ function ProductDetails() {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState("");
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -48,6 +50,40 @@ function ProductDetails() {
     const url = `https://wa.me/${product.sellerWhatsapp}?text=${encodeURIComponent(message)}`;
 
     window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  async function startChat() {
+    const token = localStorage.getItem("unimart_token");
+
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    try {
+      setChatLoading(true);
+      setChatError("");
+
+      const response = await API.post("/chat/conversations", {
+        productId: id,
+      });
+
+      const conversationId = response.data.conversation?.id;
+
+      if (!conversationId) {
+        throw new Error("Conversation ID was not returned.");
+      }
+
+      navigate(`/chat/${conversationId}`);
+    } catch (err) {
+      setChatError(
+        err.response?.data?.message ||
+          err.message ||
+          "Unable to start chat. Please try again."
+      );
+    } finally {
+      setChatLoading(false);
+    }
   }
 
   if (loading) {
@@ -145,6 +181,19 @@ function ProductDetails() {
             <div className="rounded-xl bg-gray-100 p-4 text-center text-sm text-gray-500">
               Seller hasn't added a WhatsApp number yet.
             </div>
+          )}
+
+          <button
+            onClick={startChat}
+            disabled={chatLoading}
+            className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-green-600 text-green-700 py-3 font-semibold transition hover:bg-green-50 disabled:opacity-50"
+          >
+            <MessageCircle size={20} />
+            {chatLoading ? "Opening chat..." : "Chat with Seller"}
+          </button>
+
+          {chatError && (
+            <p className="text-sm text-red-600 text-center">{chatError}</p>
           )}
         </div>
       </div>
