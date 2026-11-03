@@ -187,7 +187,7 @@ router.post("/", authenticateToken, async (req, res) => {
 });
 
 // Get available listings
-router.get("/", authenticateToken, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const products = await prisma.product.findMany({
       where: { status: "AVAILABLE" },
