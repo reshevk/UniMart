@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { io } from "socket.io-client";
 import { ArrowLeft, Send, MessageCircle, Package } from "lucide-react";
@@ -17,6 +17,7 @@ export default function Chat({ user }) {
 
   const [conversations, setConversations] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [messagesConversationId, setMessagesConversationId] = useState(null);
   const [messageText, setMessageText] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -25,7 +26,6 @@ export default function Chat({ user }) {
   const socketRef = useRef(null);
   const bottomRef = useRef(null);
 
-  // Connect socket and listen for incoming messages
   useEffect(() => {
     const token = localStorage.getItem("unimart_token");
 
@@ -56,8 +56,7 @@ export default function Chat({ user }) {
                 messages: [newMessage],
                 updatedAt: newMessage.createdAt,
                 unreadCount:
-                  newMessage.senderId !== user?.id &&
-                  !isCurrentConversation
+                  newMessage.senderId !== user?.id && !isCurrentConversation
                     ? (conversation.unreadCount || 0) + 1
                     : conversation.unreadCount || 0,
               }
@@ -66,13 +65,13 @@ export default function Chat({ user }) {
       );
 
       if (isCurrentConversation) {
-        // Refresh messages so the backend also marks them as read.
         try {
           const response = await API.get(
             `/chat/conversations/${conversationId}/messages`
           );
 
-          setMessages(response.data.messages);
+          setMessages(response.data.messages || []);
+          setMessagesConversationId(conversationId);
 
           setConversations((previous) =>
             previous.map((conversation) =>
@@ -85,11 +84,13 @@ export default function Chat({ user }) {
           console.error("Could not refresh messages:", err);
         }
       } else if (newMessage.senderId === user?.id) {
-        // The sender's own message should not be marked unread.
         setConversations((previous) =>
           previous.map((conversation) =>
             conversation.id === newMessage.conversationId
-              ? { ...conversation, unreadCount: conversation.unreadCount || 0 }
+              ? {
+                  ...conversation,
+                  unreadCount: conversation.unreadCount || 0,
+                }
               : conversation
           )
         );
@@ -102,7 +103,6 @@ export default function Chat({ user }) {
     };
   }, [navigate, conversationId, user?.id]);
 
-  // Load conversations
   useEffect(() => {
     let cancelled = false;
 
@@ -136,7 +136,6 @@ export default function Chat({ user }) {
     };
   }, [conversationId]);
 
-  // Start a conversation from a product
   useEffect(() => {
     if (!productId) return;
 
@@ -171,12 +170,8 @@ export default function Chat({ user }) {
     };
   }, [productId, navigate]);
 
-  // Load messages and mark the conversation as read
   useEffect(() => {
-    if (!conversationId) {
-      setMessages([]);
-      return;
-    }
+    if (!conversationId) return;
 
     let cancelled = false;
 
@@ -190,6 +185,7 @@ export default function Chat({ user }) {
 
         if (!cancelled) {
           setMessages(response.data.messages || []);
+          setMessagesConversationId(conversationId);
 
           setConversations((previous) =>
             previous.map((conversation) =>
@@ -205,6 +201,7 @@ export default function Chat({ user }) {
             err.response?.data?.message || "Could not load messages."
           );
           setMessages([]);
+          setMessagesConversationId(conversationId);
         }
       }
     }
@@ -216,10 +213,15 @@ export default function Chat({ user }) {
     };
   }, [conversationId]);
 
-  // Scroll to the latest message
+  const visibleMessages = useMemo(
+    () =>
+      messagesConversationId === conversationId ? messages : [],
+    [messagesConversationId, conversationId, messages]
+  );
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [visibleMessages]);
 
   const activeConversation = conversations.find(
     (conversation) => conversation.id === conversationId
@@ -257,6 +259,7 @@ export default function Chat({ user }) {
         return [...previous, sentMessage];
       });
 
+      setMessagesConversationId(conversationId);
       setMessageText("");
 
       setConversations((previous) =>
@@ -423,7 +426,7 @@ export default function Chat({ user }) {
               </div>
 
               <div className="flex-1 space-y-3 overflow-y-auto bg-[#f8fcf9] p-4">
-                {messages.map((message) => {
+                {visibleMessages.map((message) => {
                   const mine = message.senderId === user?.id;
 
                   return (
@@ -459,7 +462,7 @@ export default function Chat({ user }) {
                   );
                 })}
 
-                {messages.length === 0 && (
+                {visibleMessages.length === 0 && (
                   <p className="py-10 text-center text-sm text-gray-400">
                     No messages yet. Say hello!
                   </p>

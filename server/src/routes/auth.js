@@ -437,6 +437,14 @@ router.post(
         });
       }
 
+      if (user.suspendedAt) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Your account has been suspended. Please contact the administrator.",
+        });
+      }
+
       return res.json({
         success: true,
         message: "Login successful",

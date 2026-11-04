@@ -5,6 +5,7 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import app from "./app.js";
 import allowedOrigins from "./config/cors.js";
+import { prisma } from "./lib/prisma.js";
 
 const requiredEnvVars = [
   "DATABASE_URL",
@@ -46,7 +47,7 @@ const io = new Server(httpServer, {
 
 app.set("io", io);
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth?.token;
 
@@ -54,21 +55,49 @@ io.use((socket, next) => {
       return next(new Error("Authentication required"));
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+      algorithms: ["HS256"],
+    });
 
-    if (!decoded.userId) {
+    if (
+      !decoded ||
+      typeof decoded !== "object" ||
+      typeof decoded.userId !== "string" ||
+      !decoded.userId.trim()
+    ) {
       return next(new Error("Invalid authentication token"));
     }
 
-    socket.userId = decoded.userId;
-    next();
-  } catch {
-    next(new Error("Unauthorized"));
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: {
+        id: true,
+        role: true,
+        suspendedAt: true,
+      },
+    });
+
+    if (!user) {
+      return next(new Error("Account no longer exists"));
+    }
+
+    if (user.suspendedAt) {
+      return next(new Error("Your account has been suspended"));
+    }
+
+    socket.userId = user.id;
+    socket.userRole = user.role;
+
+    return next();
+  } catch (error) {
+    console.error("Socket authentication error:", error.message);
+    return next(new Error("Unauthorized"));
   }
 });
 
 io.on("connection", (socket) => {
   socket.join(`user:${socket.userId}`);
+
   console.log(`User connected to chat: ${socket.userId}`);
 
   socket.on("disconnect", () => {
@@ -79,5 +108,5 @@ io.on("connection", (socket) => {
 const PORT = process.env.PORT || 5001;
 
 httpServer.listen(PORT, () => {
-  console.log(`UniMArt server running on port ${PORT}`);
+  console.log(`UniMart server running on port ${PORT}`);
 });

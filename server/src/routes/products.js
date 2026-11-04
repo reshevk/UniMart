@@ -300,7 +300,10 @@ router.post("/", authenticateToken, async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const products = await prisma.product.findMany({
-      where: { status: "AVAILABLE" },
+      where: {
+  status: "AVAILABLE",
+  moderationStatus: "ACTIVE",
+},
       include: {
         seller: {
           select: { id: true, name: true },

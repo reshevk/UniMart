@@ -18,20 +18,35 @@ export default function MyListings() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({});
 
-  async function loadListings() {
-    try {
-      const response = await API.get("/products/my-listings");
-      setProducts(response.data.products || []);
-      setError("");
-    } catch (err) {
-      setError(err.response?.data?.message || "Could not load your listings.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    loadListings();
+    let cancelled = false;
+
+    async function fetchListings() {
+      try {
+        const response = await API.get("/products/my-listings");
+
+        if (!cancelled) {
+          setProducts(response.data.products || []);
+          setError("");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err.response?.data?.message || "Could not load your listings."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    fetchListings();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function startEditing(product) {
@@ -93,6 +108,7 @@ export default function MyListings() {
 
     try {
       await API.delete(`/products/${id}`);
+
       setProducts((current) =>
         current.filter((product) => product.id !== id)
       );

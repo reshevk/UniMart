@@ -1,11 +1,15 @@
-
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 import { Mail, Lock, ShoppingBag } from "lucide-react";
 import API from "../api";
 
 function Login({ onLogin }) {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [formData, setFormData] = useState({
     email: "",
@@ -36,17 +40,21 @@ function Login({ onLogin }) {
         password: formData.password,
       });
 
-      onLogin(response.data.token, response.data.user);
+      await onLogin(response.data.token);
 
       setMessage("Login successful!");
       setMessageType("success");
 
-      navigate("/account");
+      const destination =
+        location.state?.from?.pathname || "/account";
+
+      navigate(destination, { replace: true });
     } catch (error) {
       setMessage(
         error.response?.data?.message ||
           "Login failed. Please try again."
       );
+
       setMessageType("error");
     } finally {
       setLoading(false);
@@ -56,7 +64,6 @@ function Login({ onLogin }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f4faf6] px-4 py-10">
       <div className="w-full max-w-md rounded-3xl border border-white bg-white/75 p-8 shadow-xl backdrop-blur-xl">
-
         <Link to="/" className="mb-8 flex items-center justify-center gap-2">
           <div className="rounded-xl bg-green-700 p-2 text-white">
             <ShoppingBag size={22} />
@@ -90,7 +97,6 @@ function Login({ onLogin }) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
-
           <div>
             <label className="mb-2 block text-sm font-medium">
               College Email
@@ -138,7 +144,6 @@ function Login({ onLogin }) {
           >
             {loading ? "Logging in..." : "Login"}
           </button>
-
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-500">
@@ -157,7 +162,6 @@ function Login({ onLogin }) {
         >
           Back to Home
         </Link>
-
       </div>
     </div>
   );

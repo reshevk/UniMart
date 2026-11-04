@@ -6,35 +6,75 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id            String   @id @default(uuid())
-  name          String
-  email         String   @unique
-  password      String
-  emailVerified Boolean  @default(true)
+enum UserRole {
+  STUDENT
+  ADMIN
+  OWNER
+}
 
-  products  Product[]
+enum ModerationStatus {
+  ACTIVE
+  HIDDEN
+  REMOVED
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  DISMISSED
+  ACTION_TAKEN
+}
+
+model User {
+  id            String  @id @default(uuid())
+  name          String
+  email         String  @unique
+  password      String
+  emailVerified Boolean @default(true)
+
+  role             UserRole  @default(STUDENT)
+  suspendedAt      DateTime?
+  suspensionReason String?
+
+  adminTeamMembership  AdminTeamMember?
+  adminTeamInvitations AdminTeamMember[] @relation("AdminTeamInviter")
+
+  products Product[]
 
   buyerConversations  Conversation[] @relation("ConversationBuyer")
   sellerConversations Conversation[] @relation("ConversationSeller")
   messages            Message[]
 
+  receivedWarnings Warning[] @relation("WarningRecipient")
+  issuedWarnings   Warning[] @relation("WarningIssuer")
+
+  submittedReports Report[] @relation("ReportReporter")
+  reportsAgainst   Report[] @relation("ReportTargetUser")
+
+  adminActionsPerformed AdminAction[] @relation("AdminActor")
+  adminActionsTargeting AdminAction[] @relation("AdminTargetUser")
+
+  createdAnnouncements Announcement[]     @relation("AnnouncementCreator")
+  announcementReads    AnnouncementRead[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([suspendedAt])
 }
 
 model PendingRegistration {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  password     String
-  otpHash      String
-  expiresAt    DateTime
-  attempts     Int      @default(0)
-  lastSentAt   DateTime @default(now())
-  createdAt    DateTime @default(now())
+  id         String   @id @default(uuid())
+  name       String
+  email      String   @unique
+  password   String
+  otpHash    String
+  expiresAt  DateTime
+  attempts   Int      @default(0)
+  lastSentAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 }
-
 
 model Product {
   id             String   @id @default(uuid())
@@ -48,28 +88,34 @@ model Product {
   sellerWhatsapp String?
   status         String   @default("AVAILABLE")
 
+  moderationStatus ModerationStatus @default(ACTIVE)
+  moderatedAt      DateTime?
+  moderationReason String?
+
   sellerId String
   seller   User   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
   conversations Conversation[]
+  reports       Report[]
+  adminActions  AdminAction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([moderationStatus])
 }
 
-
-
 model Conversation {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
 
   productId String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   buyerId String
   buyer   User   @relation("ConversationBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
 
   sellerId String
-  seller  User   @relation("ConversationSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  seller   User   @relation("ConversationSeller", fields: [sellerId], references: [id], onDelete: Cascade)
 
   messages Message[]
 
@@ -82,7 +128,6 @@ model Conversation {
   @@unique([productId, buyerId])
 }
 
-
 model Message {
   id             String       @id @default(uuid())
   content        String
@@ -93,4 +138,124 @@ model Message {
   sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+}
+
+model Warning {
+  id      String @id @default(uuid())
+  message String
+  reason  String
+
+  userId String
+  user   User   @relation("WarningRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  issuedById String
+  issuedBy   User   @relation("WarningIssuer", fields: [issuedById], references: [id], onDelete: Restrict)
+
+  acknowledgedAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Report {
+  id String @id @default(uuid())
+
+  reason      String
+  description String?
+
+  reporterId String
+  reporter   User   @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  reportedUserId String?
+  reportedUser   User?   @relation("ReportTargetUser", fields: [reportedUserId], references: [id], onDelete: SetNull)
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  status     ReportStatus @default(PENDING)
+  reviewedAt DateTime?
+  reviewedBy String?
+  resolution String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([reportedUserId])
+  @@index([productId])
+}
+
+model AdminAction {
+  id String @id @default(uuid())
+
+  action String
+  reason String?
+
+  actorId String
+  actor   User   @relation("AdminActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  targetUserId String?
+  targetUser   User?   @relation("AdminTargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  targetProductId String?
+  targetProduct   Product? @relation(fields: [targetProductId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([targetUserId])
+  @@index([targetProductId])
+}
+
+model Announcement {
+  id       String  @id @default(uuid())
+  title    String
+  message  String
+  isUrgent Boolean @default(false)
+  isActive Boolean @default(true)
+
+  createdById String
+  createdBy   User   @relation("AnnouncementCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  reads AnnouncementRead[]
+
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, publishedAt])
+  @@index([createdById])
+}
+
+model AnnouncementRead {
+  id String @id @default(uuid())
+
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  readAt DateTime @default(now())
+
+  @@unique([announcementId, userId])
+  @@index([userId, readAt])
+}
+
+model AdminTeamMember {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  canManageListings      Boolean @default(false)
+  canManageReports       Boolean @default(false)
+  canManageUsers         Boolean @default(false)
+  canManageAnnouncements Boolean @default(false)
+
+  invitedById String
+  invitedBy   User   @relation("AdminTeamInviter", fields: [invitedById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -8,8 +8,19 @@ import {
   User,
   Tag,
   MessageCircle,
+  Flag,
+  X,
 } from "lucide-react";
 import API from "../api";
+
+const REPORT_REASONS = [
+  "Scam or fraud",
+  "Prohibited or unsafe item",
+  "Misleading listing information",
+  "Harassment or abusive behaviour",
+  "Spam or duplicate listing",
+  "Other",
+];
 
 function ProductDetails() {
   const { id } = useParams();
@@ -22,10 +33,23 @@ function ProductDetails() {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState("");
 
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState("LISTING");
+  const [reportReason, setReportReason] = useState("");
+  const [reportDescription, setReportDescription] = useState("");
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState("");
+  const [reportSuccess, setReportSuccess] = useState("");
+
   useEffect(() => {
-    const fetchProduct = async () => {
+    let active = true;
+
+    async function fetchProduct() {
       try {
         const response = await API.get("/products");
+
+        if (!active) return;
+
         const foundProduct = response.data.products.find(
           (item) => item.id === id
         );
@@ -36,14 +60,22 @@ function ProductDetails() {
           setProduct(foundProduct);
           setSelectedImage(0);
         }
-      } catch (err) {
-        setError("Unable to load product details. Please try again.");
+      } catch {
+        if (active) {
+          setError("Unable to load product details. Please try again.");
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
-    };
+    }
 
     fetchProduct();
+
+    return () => {
+      active = false;
+    };
   }, [id]);
 
   const productImages = product
@@ -54,6 +86,8 @@ function ProductDetails() {
         ])
       )
     : [];
+
+  const sellerId = product?.seller?.id || product?.sellerId;
 
   function contactSeller() {
     if (!product?.sellerWhatsapp) return;
@@ -107,6 +141,66 @@ function ProductDetails() {
       );
     } finally {
       setChatLoading(false);
+    }
+  }
+
+  function openReport(target) {
+    if (!localStorage.getItem("unimart_token")) {
+      navigate("/login");
+      return;
+    }
+
+    setReportTarget(target);
+    setReportReason("");
+    setReportDescription("");
+    setReportError("");
+    setReportSuccess("");
+    setReportOpen(true);
+  }
+
+  async function submitReport(event) {
+    event.preventDefault();
+
+    if (!reportReason) {
+      setReportError("Please select a reason.");
+      return;
+    }
+
+    try {
+      setReportLoading(true);
+      setReportError("");
+
+      const payload = {
+        targetType: reportTarget,
+        reason: reportReason,
+        description: reportDescription,
+      };
+
+      if (reportTarget === "LISTING") {
+        payload.productId = id;
+      } else {
+        if (!sellerId) {
+          setReportError("Seller information is unavailable.");
+          return;
+        }
+
+        payload.reportedUserId = sellerId;
+      }
+
+      const response = await API.post("/reports", payload);
+
+      setReportSuccess(
+        response.data.message || "Your report has been submitted."
+      );
+      setReportReason("");
+      setReportDescription("");
+    } catch (err) {
+      setReportError(
+        err.response?.data?.message ||
+          "Unable to submit your report. Please try again."
+      );
+    } finally {
+      setReportLoading(false);
     }
   }
 
@@ -274,8 +368,158 @@ function ProductDetails() {
           {chatError && (
             <p className="text-sm text-red-600 text-center">{chatError}</p>
           )}
+
+          <div className="border-t border-green-100 pt-4 space-y-3">
+            <p className="text-sm text-gray-500 text-center">
+              See something that doesn't look right?
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={() => openReport("LISTING")}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-red-200 text-red-600 py-3 font-medium hover:bg-red-50 transition"
+              >
+                <Flag size={17} />
+                Report listing
+              </button>
+
+              <button
+                type="button"
+                onClick={() => openReport("USER")}
+                disabled={!sellerId}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-red-200 text-red-600 py-3 font-medium hover:bg-red-50 transition disabled:opacity-50"
+              >
+                <Flag size={17} />
+                Report seller
+              </button>
+            </div>
+          </div>
         </div>
       </div>
+
+      {reportOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget && !reportLoading) {
+              setReportOpen(false);
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="report-title"
+            className="w-full max-w-lg rounded-3xl border border-green-100 bg-white p-6 shadow-2xl"
+          >
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h2
+                  id="report-title"
+                  className="text-xl font-bold text-gray-900"
+                >
+                  Report {reportTarget === "LISTING" ? "listing" : "seller"}
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Your report will be reviewed by the UniMart team.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setReportOpen(false)}
+                disabled={reportLoading}
+                className="rounded-full p-2 text-gray-500 hover:bg-gray-100"
+                aria-label="Close report dialog"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {reportSuccess ? (
+              <div className="space-y-4">
+                <div className="rounded-xl bg-green-50 p-4 text-sm text-green-800">
+                  {reportSuccess}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(false)}
+                  className="w-full rounded-xl bg-green-600 py-3 font-semibold text-white hover:bg-green-700"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={submitReport} className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="report-reason"
+                    className="mb-2 block text-sm font-semibold text-gray-700"
+                  >
+                    Why are you reporting this?
+                  </label>
+
+                  <select
+                    id="report-reason"
+                    value={reportReason}
+                    onChange={(event) => setReportReason(event.target.value)}
+                    required
+                    className="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                  >
+                    <option value="">Select a reason</option>
+                    {REPORT_REASONS.map((reason) => (
+                      <option key={reason} value={reason}>
+                        {reason}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="report-description"
+                    className="mb-2 block text-sm font-semibold text-gray-700"
+                  >
+                    Additional details (optional)
+                  </label>
+
+                  <textarea
+                    id="report-description"
+                    value={reportDescription}
+                    onChange={(event) =>
+                      setReportDescription(event.target.value)
+                    }
+                    maxLength={1000}
+                    rows={4}
+                    placeholder="Tell us a little more about the issue..."
+                    className="w-full resize-y rounded-xl border border-gray-200 p-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                  />
+
+                  <p className="mt-1 text-right text-xs text-gray-400">
+                    {reportDescription.length}/1000
+                  </p>
+                </div>
+
+                {reportError && (
+                  <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+                    {reportError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={reportLoading}
+                  className="w-full rounded-xl bg-green-600 py-3 font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {reportLoading ? "Submitting..." : "Submit report"}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

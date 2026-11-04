@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -19,6 +19,7 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 function SellItem() {
   const navigate = useNavigate();
+  const previewUrlsRef = useRef(new Set());
 
   const [formData, setFormData] = useState({
     title: "",
@@ -35,19 +36,16 @@ function SellItem() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const imagePreviews = images.map((image) => ({
-      file: image,
-      url: URL.createObjectURL(image),
-    }));
-
-    setPreviews(imagePreviews);
+    const previewUrls = previewUrlsRef.current;
 
     return () => {
-      imagePreviews.forEach((preview) =>
-        URL.revokeObjectURL(preview.url)
-      );
+      previewUrls.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+
+      previewUrls.clear();
     };
-  }, [images]);
+  }, []);
 
   function handleChange(e) {
     setFormData({
@@ -91,9 +89,24 @@ function SellItem() {
       }
     }
 
+    const newPreviews = selectedImages.map((image) => {
+      const url = URL.createObjectURL(image);
+      previewUrlsRef.current.add(url);
+
+      return {
+        file: image,
+        url,
+      };
+    });
+
     setImages((previousImages) => [
       ...previousImages,
       ...selectedImages,
+    ]);
+
+    setPreviews((previousPreviews) => [
+      ...previousPreviews,
+      ...newPreviews,
     ]);
 
     setMessage("");
@@ -101,9 +114,21 @@ function SellItem() {
   }
 
   function removeImage(index) {
+    const previewToRemove = previews[index];
+
+    if (previewToRemove) {
+      URL.revokeObjectURL(previewToRemove.url);
+      previewUrlsRef.current.delete(previewToRemove.url);
+    }
+
     setImages((previousImages) =>
       previousImages.filter((_, i) => i !== index)
     );
+
+    setPreviews((previousPreviews) =>
+      previousPreviews.filter((_, i) => i !== index)
+    );
+
     setMessage("");
   }
 
@@ -436,4 +461,3 @@ function SellItem() {
 }
 
 export default SellItem;
-
