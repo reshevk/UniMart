@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import {
   BrowserRouter,
@@ -42,6 +43,14 @@ import {
   Bell,
   CheckCheck,
   AlertTriangle,
+  Lock,
+  Eye,
+  EyeOff,
+  KeyRound,
+  CheckCircle2,
+  AlertCircle,
+  ChevronRight,
+  Utensils,
 } from "lucide-react";
 
 const SOCKET_URL =
@@ -50,6 +59,7 @@ const SOCKET_URL =
 
 const categories = [
   { name: "Electronics", icon: Laptop },
+  { name: "Food & Snacks", icon: Utensils },
   { name: "Books", icon: BookOpen },
   { name: "Accessories", icon: Shirt },
   { name: "Furniture", icon: Armchair },
@@ -116,8 +126,6 @@ function NotificationBell({ user }) {
 
     socket.on("announcement:new", (announcement) => {
       if (!active) return;
-
-      console.log("New campus announcement received:", announcement);
 
       setUnreadCount((current) => current + 1);
 
@@ -479,9 +487,15 @@ function Home({ user, onLogout }) {
           </Link>
 
           <div className="hidden items-center gap-8 text-sm font-medium md:flex">
-            <Link to="/" className="text-green-700">Home</Link>
-            <a href="#categories" className="hover:text-green-700">Categories</a>
-            <a href="#products" className="hover:text-green-700">Explore</a>
+            <Link to="/" className="text-green-700">
+              Home
+            </Link>
+            <a href="#categories" className="hover:text-green-700">
+              Categories
+            </a>
+            <a href="#products" className="hover:text-green-700">
+              Explore
+            </a>
           </div>
 
           <div className="hidden items-center gap-3 sm:flex">
@@ -528,7 +542,10 @@ function Home({ user, onLogout }) {
               </>
             ) : (
               <>
-                <Link to="/login" className="rounded-full px-4 py-2 text-sm font-medium hover:bg-green-50">
+                <Link
+                  to="/login"
+                  className="rounded-full px-4 py-2 text-sm font-medium hover:bg-green-50"
+                >
                   Login
                 </Link>
                 <Link
@@ -586,29 +603,35 @@ function Home({ user, onLogout }) {
                   behavior: "smooth",
                 });
               }}
-              className="mt-8 flex max-w-xl items-center gap-3 rounded-2xl border border-white/80 bg-white/65 p-2 shadow-xl shadow-green-900/5 backdrop-blur-2xl"
+              className="mt-8 flex w-full max-w-xl items-center gap-2 rounded-xl border border-white/80 bg-white/65 p-1.5 shadow-xl shadow-green-900/5 backdrop-blur-2xl sm:gap-3 sm:rounded-2xl sm:p-2"
             >
-              <Search className="ml-3 shrink-0 text-green-700" size={22} />
+              <Search
+                className="ml-2 shrink-0 text-green-700 sm:ml-3"
+                size={18}
+              />
+
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search books, gadgets, furniture..."
-                className="min-w-0 flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-gray-500"
+                className="min-w-0 flex-1 bg-transparent py-2 text-xs outline-none placeholder:text-gray-500 sm:py-3 sm:text-sm"
               />
+
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
                   aria-label="Clear search"
-                  className="rounded-lg p-2 text-gray-500 hover:bg-green-100 hover:text-green-800"
+                  className="shrink-0 rounded-lg p-1.5 text-gray-500 hover:bg-green-100 hover:text-green-800 sm:p-2"
                 >
-                  <X size={18} />
+                  <X size={16} />
                 </button>
               )}
+
               <button
                 type="submit"
-                className="rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white hover:bg-green-800"
+                className="shrink-0 rounded-lg bg-green-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-green-800 sm:rounded-xl sm:px-5 sm:py-3 sm:text-sm"
               >
                 Search
               </button>
@@ -632,7 +655,9 @@ function Home({ user, onLogout }) {
           <div className="mb-7 flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold">Browse categories</h2>
-              <p className="mt-1 text-sm text-gray-500">Find exactly what you need</p>
+              <p className="mt-1 text-sm text-gray-500">
+                Find exactly what you need
+              </p>
             </div>
             {selectedCategory && (
               <button
@@ -644,7 +669,7 @@ function Home({ user, onLogout }) {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
             {categories.map((category) => {
               const Icon = category.icon;
               const isSelected = selectedCategory === category.name;
@@ -670,7 +695,9 @@ function Home({ user, onLogout }) {
                   >
                     <Icon size={22} />
                   </div>
-                  <span className="text-sm font-semibold">{category.name}</span>
+                  <span className="text-sm font-semibold">
+                    {category.name}
+                  </span>
                 </button>
               );
             })}
@@ -698,12 +725,17 @@ function Home({ user, onLogout }) {
           </div>
 
           {productsLoading ? (
-            <p className="py-12 text-center text-gray-500">Loading products...</p>
+            <p className="py-12 text-center text-gray-500">
+              Loading products...
+            </p>
           ) : apiError ? (
             <p className="py-12 text-center text-red-600">{apiError}</p>
           ) : products.length === 0 ? (
             <div className="rounded-3xl border border-green-100 bg-white/70 px-5 py-12 text-center">
-              <ShoppingBag size={36} className="mx-auto mb-3 text-green-700" />
+              <ShoppingBag
+                size={36}
+                className="mx-auto mb-3 text-green-700"
+              />
               <h3 className="text-lg font-bold">No products listed yet</h3>
               <p className="mt-2 text-sm text-gray-500">
                 Be the first student to list something on UniMart!
@@ -718,7 +750,9 @@ function Home({ user, onLogout }) {
           ) : filteredProducts.length === 0 ? (
             <div className="rounded-3xl border border-green-100 bg-white/70 px-5 py-12 text-center">
               <Search size={36} className="mx-auto mb-3 text-green-700" />
-              <h3 className="text-lg font-bold">No matching products found</h3>
+              <h3 className="text-lg font-bold">
+                No matching products found
+              </h3>
               <p className="mt-2 text-sm text-gray-500">
                 Try another search or category.
               </p>
@@ -762,7 +796,9 @@ function Home({ user, onLogout }) {
                         ) : (
                           <div className="flex flex-col items-center gap-2 text-green-700/50">
                             <ImageOff size={38} />
-                            <span className="text-xs font-medium">No image available</span>
+                            <span className="text-xs font-medium">
+                              No image available
+                            </span>
                           </div>
                         )}
 
@@ -826,7 +862,9 @@ function Home({ user, onLogout }) {
 
         <section className="mb-14 flex flex-col items-center justify-between gap-6 rounded-3xl border border-white bg-gradient-to-r from-green-800 to-green-600 p-8 text-center text-white shadow-xl shadow-green-900/10 sm:flex-row sm:text-left md:p-12">
           <div>
-            <h2 className="text-2xl font-bold md:text-3xl">Have something to sell?</h2>
+            <h2 className="text-2xl font-bold md:text-3xl">
+              Have something to sell?
+            </h2>
             <p className="mt-2 text-sm text-green-100">
               List your product and connect with students on campus.
             </p>
@@ -848,7 +886,9 @@ function Home({ user, onLogout }) {
         <h3 className="text-xl font-bold">
           Uni<span className="text-green-700">Mart</span>
         </h3>
-        <p className="mt-2 text-sm text-gray-500">Built for SST. By SST. 💚</p>
+        <p className="mt-2 text-sm text-gray-500">
+          Built for SST
+        </p>
         <p className="mt-3 text-xs text-gray-400">
           © 2026 UniMart. All rights reserved.
         </p>
@@ -872,7 +912,7 @@ function ProtectedRoute({ user, loading, children }) {
   return children;
 }
 
-// OWNER-ONLY ROUTE
+// OWNER / ADMIN ROUTE
 function OwnerRoute({ user, loading, children }) {
   const location = useLocation();
 
@@ -888,7 +928,9 @@ function OwnerRoute({ user, loading, children }) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  if (!["OWNER", "ADMIN"].includes(user.role)) return <Navigate to="/" replace />;
+  if (!["OWNER", "ADMIN"].includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
 
   return children;
 }
@@ -897,84 +939,860 @@ function OwnerRoute({ user, loading, children }) {
 function Account({ user, onLogout }) {
   const navigate = useNavigate();
 
+  const [mode, setMode] = useState("change");
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [otp, setOtp] = useState("");
+
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordMessageType, setPasswordMessageType] = useState("");
+
+  const email = user?.email || "";
+
+  const passwordStrength = (() => {
+    if (!newPassword) return 0;
+
+    let score = 0;
+
+    if (newPassword.length >= 8) score++;
+    if (/[A-Z]/.test(newPassword)) score++;
+    if (/[0-9]/.test(newPassword)) score++;
+    if (/[^A-Za-z0-9]/.test(newPassword)) score++;
+
+    return score;
+  })();
+
+  const strengthLabels = ["", "Weak", "Fair", "Good", "Strong"];
+
+  const inputClass =
+    "w-full rounded-xl border border-gray-200 bg-[#f8fbf9] px-4 py-3.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-green-600 focus:bg-white focus:ring-4 focus:ring-green-100";
+
+  const labelClass =
+    "mb-2 block text-sm font-semibold text-gray-700";
+
+  function showMessage(message, type = "success") {
+    setPasswordMessage(message);
+    setPasswordMessageType(type);
+  }
+
+  function clearMessage() {
+    setPasswordMessage("");
+    setPasswordMessageType("");
+  }
+
   function handleLogout() {
     onLogout();
     navigate("/");
   }
 
+  function switchMode(nextMode) {
+    setMode(nextMode);
+    clearMessage();
+    setOtp("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowPasswords(false);
+  }
+
+  async function handleChangePassword(e) {
+    e.preventDefault();
+    clearMessage();
+
+    if (newPassword.length < 8 || newPassword.length > 128) {
+      showMessage(
+        "Your new password must contain between 8 and 128 characters.",
+        "error"
+      );
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      showMessage("The new passwords do not match.", "error");
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      showMessage(
+        "Your new password must be different from your current password.",
+        "error"
+      );
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      const response = await API.post("/auth/change-password", {
+        currentPassword,
+        newPassword,
+      });
+
+      showMessage(
+        response.data.message || "Your password has been updated successfully."
+      );
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowPasswords(false);
+    } catch (error) {
+      showMessage(
+        error.response?.data?.message ||
+          "Unable to update your password. Please try again.",
+        "error"
+      );
+    } finally {
+      setPasswordLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    clearMessage();
+    setPasswordLoading(true);
+
+    try {
+      await API.post("/auth/forgot-password", { email });
+
+      setOtp("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setMode("reset");
+
+      showMessage(
+        `If an account exists for ${email}, a verification code has been sent.`
+      );
+    } catch (error) {
+      showMessage(
+        error.response?.data?.message ||
+          "Unable to send verification code. Please try again.",
+        "error"
+      );
+    } finally {
+      setPasswordLoading(false);
+    }
+  }
+
+  async function handleResetPassword(e) {
+    e.preventDefault();
+    clearMessage();
+
+    if (!/^\d{6}$/.test(otp)) {
+      showMessage("Enter the valid 6-digit verification code.", "error");
+      return;
+    }
+
+    if (newPassword.length < 8 || newPassword.length > 128) {
+      showMessage(
+        "Your new password must contain between 8 and 128 characters.",
+        "error"
+      );
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      showMessage("The new passwords do not match.", "error");
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      const response = await API.post("/auth/reset-password", {
+        email,
+        otp,
+        newPassword,
+      });
+
+      showMessage(
+        response.data.message ||
+          "Your password has been reset successfully."
+      );
+
+      setOtp("");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowPasswords(false);
+      setMode("change");
+    } catch (error) {
+      showMessage(
+        error.response?.data?.message ||
+          "Unable to reset your password. Check the code and try again.",
+        "error"
+      );
+    } finally {
+      setPasswordLoading(false);
+    }
+  }
+
+  const roleLabel =
+    user.role === "OWNER"
+      ? "Platform Owner"
+      : user.role === "ADMIN"
+        ? "Administrator"
+        : "Student Account";
+
+  const initials = (user.name || "U")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f4faf6] px-4 py-10">
-      <div className="w-full max-w-lg rounded-3xl border border-white bg-white/75 p-8 text-center shadow-xl backdrop-blur-xl">
-        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-700">
-          <User size={30} />
-        </div>
-        <h1 className="text-3xl font-bold text-[#075c3b]">
-          Welcome, {user.name}!
-        </h1>
-        <p className="mt-2 text-gray-500">
-          You are successfully logged in to UniMart.
-        </p>
-
-        <div className="mt-8 rounded-2xl bg-green-50 p-5 text-left">
-          <p className="text-xs font-semibold uppercase tracking-wider text-green-700">
-            Your account
-          </p>
-          <p className="mt-3 text-sm text-gray-500">Name</p>
-          <p className="font-semibold">{user.name}</p>
-          <p className="mt-4 text-sm text-gray-500">College email</p>
-          <p className="font-semibold">{user.email}</p>
-        </div>
-
-        {["OWNER", "ADMIN"].includes(user.role) && (
-          <Link
-            to="/admin"
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#075c3b] py-3 font-semibold text-white shadow-lg shadow-green-900/15 transition hover:bg-green-900"
-          >
-            <ShieldCheck size={19} />
-            Admin Dashboard
-            <ArrowRight size={18} />
+    <div className="min-h-screen bg-[#f4f8f5] text-[#18352a]">
+      {/* TOP NAVIGATION */}
+      <nav className="sticky top-0 z-40 border-b border-green-900/10 bg-white/85 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="rounded-xl bg-green-700 p-2 text-white shadow-sm">
+              <ShoppingBag size={21} />
+            </div>
+            <span className="text-xl font-bold tracking-tight">
+              Uni<span className="text-green-700">Mart</span>
+            </span>
           </Link>
-        )}
 
-        <Link
-          to="/sell"
-          className="mt-6 block w-full rounded-xl bg-green-700 py-3 font-semibold text-white hover:bg-green-800"
-        >
-          Sell an Item
-        </Link>
-        <Link
-          to="/my-listings"
-          className="mt-3 block w-full rounded-xl bg-green-100 py-3 font-semibold text-green-800 hover:bg-green-200"
-        >
-          Manage My Listings
-        </Link>
-        <Link
-          to="/wishlist"
-          className="mt-3 block w-full rounded-xl border border-green-200 py-3 font-semibold text-green-800 hover:bg-green-50"
-        >
-          My Wishlist
-        </Link>
-        <Link
-          to="/chat"
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-green-200 py-3 font-semibold text-green-800 hover:bg-green-50"
-        >
-          <MessageCircle size={18} />
-          My Chats
-        </Link>
-        <Link
-          to="/"
-          className="mt-3 block w-full rounded-xl border border-green-200 py-3 font-semibold text-green-800 hover:bg-green-50"
-        >
-          Back to Marketplace
-        </Link>
-        <button
-          onClick={handleLogout}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 py-3 font-semibold text-red-600 hover:bg-red-50"
-        >
-          <LogOut size={18} />
-          Logout
-        </button>
-      </div>
+          <Link
+            to="/"
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-green-800 transition hover:bg-green-50"
+          >
+            <ArrowRight size={16} className="rotate-180" />
+            <span className="hidden sm:inline">Back to marketplace</span>
+            <span className="sm:hidden">Marketplace</span>
+          </Link>
+        </div>
+      </nav>
+
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
+        {/* PAGE HEADING */}
+        <div className="mb-8">
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-green-700">
+            Account settings
+          </p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#173d2c] sm:text-4xl">
+            Your account
+          </h1>
+          <p className="mt-2 text-sm text-gray-500 sm:text-base">
+            Manage your profile, security and UniMart activity.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-7 lg:grid-cols-[0.85fr_1.5fr]">
+          {/* LEFT PROFILE PANEL */}
+          <aside className="space-y-6">
+            <section className="overflow-hidden rounded-3xl border border-green-100 bg-white shadow-sm">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#075c3b] via-[#11794e] to-[#20a36c] px-6 pb-8 pt-8 text-white">
+                <div className="absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+                <div className="absolute -bottom-14 left-20 h-40 w-40 rounded-full bg-green-300/20 blur-2xl" />
+
+                <div className="relative flex flex-col items-center text-center">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-3xl border border-white/30 bg-white/15 text-2xl font-bold shadow-lg backdrop-blur-xl">
+                    {initials}
+                  </div>
+
+                  <h2 className="mt-4 text-xl font-bold">
+                    {user.name}
+                  </h2>
+
+                  <p className="mt-1 break-all text-sm text-green-100">
+                    {user.email}
+                  </p>
+
+                  <span className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-lg">
+                    <ShieldCheck size={14} />
+                    {roleLabel}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-4 p-6">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    Full name
+                  </p>
+                  <p className="mt-1.5 font-semibold text-gray-800">
+                    {user.name}
+                  </p>
+                </div>
+
+                <div className="h-px bg-gray-100" />
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    College email
+                  </p>
+                  <p className="mt-1.5 break-all text-sm font-semibold text-gray-800">
+                    {user.email}
+                  </p>
+                </div>
+
+                <div className="h-px bg-gray-100" />
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    Account type
+                  </p>
+                  <p className="mt-1.5 font-semibold text-gray-800">
+                    {roleLabel}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {/* ACCOUNT NAVIGATION */}
+            <section className="rounded-3xl border border-green-100 bg-white p-5 shadow-sm">
+              <h3 className="mb-3 px-2 text-xs font-bold uppercase tracking-wider text-gray-400">
+                Quick access
+              </h3>
+
+              {[
+                {
+                  label: "Sell an item",
+                  description: "Create a new listing",
+                  icon: Plus,
+                  to: "/sell",
+                },
+                {
+                  label: "My listings",
+                  description: "Manage your products",
+                  icon: Package,
+                  to: "/my-listings",
+                },
+                {
+                  label: "My wishlist",
+                  description: "View saved products",
+                  icon: Heart,
+                  to: "/wishlist",
+                },
+                {
+                  label: "My chats",
+                  description: "Talk to other students",
+                  icon: MessageCircle,
+                  to: "/chat",
+                },
+              ].map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className="group flex items-center gap-3 rounded-2xl px-3 py-3 transition hover:bg-green-50"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-700 transition group-hover:bg-green-100">
+                      <Icon size={19} />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-gray-800">
+                        {item.label}
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        {item.description}
+                      </p>
+                    </div>
+
+                    <ChevronRight
+                      size={17}
+                      className="text-gray-400 transition group-hover:translate-x-1 group-hover:text-green-700"
+                    />
+                  </Link>
+                );
+              })}
+            </section>
+
+            {["OWNER", "ADMIN"].includes(user.role) && (
+              <Link
+                to="/admin"
+                className="flex items-center gap-3 rounded-2xl bg-[#075c3b] p-4 text-white shadow-lg shadow-green-900/10 transition hover:bg-green-900"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15">
+                  <ShieldCheck size={22} />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold">Admin Dashboard</p>
+                  <p className="mt-0.5 text-xs text-green-100">
+                    Manage the UniMart platform
+                  </p>
+                </div>
+
+                <ArrowRight size={19} />
+              </Link>
+            )}
+          </aside>
+
+          {/* RIGHT CONTENT */}
+          <div className="space-y-7">
+            {/* SECURITY HEADER */}
+            <section className="relative overflow-hidden rounded-3xl border border-green-100 bg-gradient-to-br from-white to-[#eaf7ef] p-6 shadow-sm sm:p-8">
+              <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-green-200/30 blur-3xl" />
+
+              <div className="relative flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-green-100 text-green-800">
+                  <Lock size={23} />
+                </div>
+
+                <div>
+                  <h2 className="text-xl font-bold text-[#173d2c]">
+                    Account security
+                  </h2>
+                  <p className="mt-1 max-w-lg text-sm leading-relaxed text-gray-500">
+                    Keep your account protected. Use a strong password that
+                    you don't use on other websites.
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative mt-6 flex items-center gap-2 rounded-2xl border border-green-100 bg-white/80 px-4 py-3">
+                <CheckCircle2
+                  size={18}
+                  className="shrink-0 text-green-600"
+                />
+                <p className="text-xs font-medium text-green-800 sm:text-sm">
+                  Your account is protected by UniMart authentication.
+                </p>
+              </div>
+            </section>
+
+            {/* PASSWORD SECTION */}
+            <section className="rounded-3xl border border-green-100 bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-700">
+                  <KeyRound size={21} />
+                </div>
+
+                <div>
+                  <h2 className="text-xl font-bold text-[#173d2c]">
+                    {mode === "change"
+                      ? "Change password"
+                      : mode === "forgot"
+                        ? "Reset your password"
+                        : "Verify your email"}
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {mode === "change"
+                      ? "Update your password using your current credentials."
+                      : mode === "forgot"
+                        ? "We'll send a verification code to your college email."
+                        : "Enter the verification code and choose a new password."}
+                  </p>
+                </div>
+              </div>
+
+              {/* MODE NAVIGATION */}
+              <div className="mt-7 flex flex-wrap gap-2 border-b border-gray-100 pb-5">
+                <button
+                  type="button"
+                  onClick={() => switchMode("change")}
+                  className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                    mode === "change"
+                      ? "bg-green-700 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  Change password
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => switchMode("forgot")}
+                  className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                    mode !== "change"
+                      ? "bg-green-700 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  Forgot password
+                </button>
+              </div>
+
+              {/* FEEDBACK MESSAGE */}
+              {passwordMessage && (
+                <div
+                  role="alert"
+                  className={`mt-6 flex items-start gap-3 rounded-2xl border p-4 text-sm ${
+                    passwordMessageType === "success"
+                      ? "border-green-200 bg-green-50 text-green-800"
+                      : "border-red-200 bg-red-50 text-red-700"
+                  }`}
+                >
+                  {passwordMessageType === "success" ? (
+                    <CheckCircle2
+                      size={19}
+                      className="mt-0.5 shrink-0"
+                    />
+                  ) : (
+                    <AlertCircle
+                      size={19}
+                      className="mt-0.5 shrink-0"
+                    />
+                  )}
+
+                  <p>{passwordMessage}</p>
+                </div>
+              )}
+
+              {/* CHANGE PASSWORD FORM */}
+              {mode === "change" && (
+                <form
+                  onSubmit={handleChangePassword}
+                  className="mt-7 space-y-5"
+                >
+                  <div>
+                    <label
+                      htmlFor="currentPassword"
+                      className={labelClass}
+                    >
+                      Current password
+                    </label>
+
+                    <input
+                      id="currentPassword"
+                      type={showPasswords ? "text" : "password"}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Enter your current password"
+                      autoComplete="current-password"
+                      required
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="newPassword"
+                      className={labelClass}
+                    >
+                      New password
+                    </label>
+
+                    <input
+                      id="newPassword"
+                      type={showPasswords ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Create a new password"
+                      autoComplete="new-password"
+                      minLength={8}
+                      maxLength={128}
+                      required
+                      className={inputClass}
+                    />
+
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <p className="text-xs text-gray-400">
+                        Use 8–128 characters.
+                      </p>
+
+                      {newPassword && (
+                        <span
+                          className={`text-xs font-semibold ${
+                            passwordStrength <= 1
+                              ? "text-red-500"
+                              : passwordStrength === 2
+                                ? "text-amber-600"
+                                : "text-green-700"
+                          }`}
+                        >
+                          {strengthLabels[passwordStrength]}
+                        </span>
+                      )}
+                    </div>
+
+                    {newPassword && (
+                      <div className="mt-2 flex gap-1.5">
+                        {[1, 2, 3, 4].map((level) => (
+                          <div
+                            key={level}
+                            className={`h-1.5 flex-1 rounded-full transition ${
+                              passwordStrength >= level
+                                ? passwordStrength <= 1
+                                  ? "bg-red-400"
+                                  : passwordStrength === 2
+                                    ? "bg-amber-400"
+                                    : "bg-green-500"
+                                : "bg-gray-100"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="confirmPassword"
+                      className={labelClass}
+                    >
+                      Confirm new password
+                    </label>
+
+                    <input
+                      id="confirmPassword"
+                      type={showPasswords ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Enter your new password again"
+                      autoComplete="new-password"
+                      required
+                      className={inputClass}
+                    />
+
+                    {confirmPassword && (
+                      <p
+                        className={`mt-2 text-xs font-medium ${
+                          newPassword === confirmPassword
+                            ? "text-green-700"
+                            : "text-red-500"
+                        }`}
+                      >
+                        {newPassword === confirmPassword
+                          ? "Passwords match"
+                          : "Passwords do not match"}
+                      </p>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowPasswords((current) => !current)
+                    }
+                    className="flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-green-700"
+                  >
+                    {showPasswords ? (
+                      <EyeOff size={17} />
+                    ) : (
+                      <Eye size={17} />
+                    )}
+                    {showPasswords ? "Hide passwords" : "Show passwords"}
+                  </button>
+
+                  <div className="border-t border-gray-100 pt-5">
+                    <button
+                      type="submit"
+                      disabled={passwordLoading}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#16865a] to-[#075c3b] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-green-900/10 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                    >
+                      <Lock size={17} />
+                      {passwordLoading
+                        ? "Updating password..."
+                        : "Update password"}
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => switchMode("forgot")}
+                    className="text-sm font-semibold text-green-700 hover:text-green-900"
+                  >
+                    Forgot your current password?
+                  </button>
+                </form>
+              )}
+
+              {/* FORGOT PASSWORD: SEND OTP */}
+              {mode === "forgot" && (
+                <div className="mt-7">
+                  <p className="text-sm leading-6 text-gray-600">
+                    We'll send a one-time verification code to your registered
+                    college email address.
+                  </p>
+
+                  <div className="mt-4 rounded-xl border border-green-100 bg-green-50 px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-green-700">
+                      Registered email
+                    </p>
+                    <p className="mt-1 break-all text-sm font-semibold text-green-950">
+                      {email}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={passwordLoading || !email}
+                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#16865a] to-[#075c3b] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-green-900/10 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  >
+                    <KeyRound size={17} />
+                    {passwordLoading
+                      ? "Sending verification code..."
+                      : "Send verification code"}
+                  </button>
+                </div>
+              )}
+
+              {/* RESET PASSWORD: VERIFY OTP */}
+              {mode === "reset" && (
+                <form
+                  onSubmit={handleResetPassword}
+                  className="mt-7 space-y-5"
+                >
+                  <div className="rounded-xl border border-green-100 bg-green-50 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-green-700">
+                      Verification email
+                    </p>
+                    <p className="mt-1 break-all text-sm font-semibold text-green-950">
+                      {email}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="resetOtp" className={labelClass}>
+                      Six-digit verification code
+                    </label>
+
+                    <input
+                      id="resetOtp"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={otp}
+                      onChange={(e) =>
+                        setOtp(
+                          e.target.value.replace(/\D/g, "").slice(0, 6)
+                        )
+                      }
+                      placeholder="Enter your OTP"
+                      required
+                      className={`${inputClass} text-center text-lg font-bold tracking-[0.4em]`}
+                    />
+
+                    <p className="mt-2 text-xs text-gray-400">
+                      Check your college inbox for the verification code.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="resetNewPassword"
+                      className={labelClass}
+                    >
+                      New password
+                    </label>
+
+                    <input
+                      id="resetNewPassword"
+                      type={showPasswords ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Create a new password"
+                      autoComplete="new-password"
+                      minLength={8}
+                      maxLength={128}
+                      required
+                      className={inputClass}
+                    />
+
+                    <p className="mt-2 text-xs text-gray-400">
+                      Use between 8 and 128 characters.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="resetConfirmPassword"
+                      className={labelClass}
+                    >
+                      Confirm new password
+                    </label>
+
+                    <input
+                      id="resetConfirmPassword"
+                      type={showPasswords ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Enter your new password again"
+                      autoComplete="new-password"
+                      required
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowPasswords((current) => !current)
+                    }
+                    className="flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-green-700"
+                  >
+                    {showPasswords ? (
+                      <EyeOff size={17} />
+                    ) : (
+                      <Eye size={17} />
+                    )}
+                    {showPasswords ? "Hide passwords" : "Show passwords"}
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={passwordLoading}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#16865a] to-[#075c3b] px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-green-900/10 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Lock size={17} />
+                    {passwordLoading
+                      ? "Resetting password..."
+                      : "Reset password"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={passwordLoading}
+                    className="text-sm font-semibold text-green-700 hover:text-green-900 disabled:opacity-50"
+                  >
+                    Resend verification code
+                  </button>
+                </form>
+              )}
+            </section>
+
+            {/* LOGOUT */}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center justify-between rounded-2xl border border-red-100 bg-white px-5 py-4 text-left transition hover:border-red-200 hover:bg-red-50"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600">
+                  <LogOut size={19} />
+                </div>
+
+                <div>
+                  <p className="text-sm font-semibold text-red-700">
+                    Log out
+                  </p>
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    Sign out of your UniMart account
+                  </p>
+                </div>
+              </div>
+
+              <ArrowRight size={18} className="text-red-400" />
+            </button>
+          </div>
+        </div>
+
+        <footer className="mt-12 border-t border-green-900/10 pt-6 text-center">
+          <p className="text-sm font-semibold text-green-800">
+            UniMart 💚
+          </p>
+          <p className="mt-1 text-xs text-gray-400">
+            Built for SST
+          </p>
+          <p className="mt-1 text-xs text-gray-400">
+            © 2026
+          </p>
+        </footer>
+      </main>
     </div>
   );
 }
@@ -1042,7 +1860,11 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Home user={user} onLogout={handleLogout} />} />
+        <Route
+          path="/"
+          element={<Home user={user} onLogout={handleLogout} />}
+        />
+
         <Route path="/register" element={<Register />} />
 
         <Route

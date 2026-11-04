@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { randomInt } from "node:crypto";
 import { prisma } from "../lib/prisma.js";
+import { authenticateToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -77,6 +78,47 @@ async function sendVerificationEmail(email, otp) {
     throw new Error(
       `Brevo API request failed with status ${response.status}: ${errorBody}`
     );
+  }
+}
+
+
+async function sendPasswordResetEmail(email, otp) {
+  const apiKey = process.env.BREVO_API_KEY;
+  const senderEmail = process.env.BREVO_SENDER_EMAIL;
+  const senderName = process.env.BREVO_SENDER_NAME || "UniMart";
+
+  if (!apiKey || !senderEmail) {
+    throw new Error("Brevo email configuration is missing");
+  }
+
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": apiKey,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      sender: { name: senderName, email: senderEmail },
+      to: [{ email }],
+      subject: "Your UniMart password reset code",
+      textContent: `Your UniMart password reset code is ${otp}. It expires in 10 minutes.`,
+      htmlContent: `
+        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 24px;">
+          <h2 style="color: #075c3b;">Reset your UniMart password</h2>
+          <p>Use this code to reset your password:</p>
+          <h1 style="letter-spacing: 8px; color: #16865a;">${otp}</h1>
+          <p>This code expires in 10 minutes.</p>
+          <p>If you did not request a password reset, you can ignore this email.</p>
+        </div>
+      `,
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Brevo API request failed with status ${response.status}: ${errorBody}`);
   }
 }
 
@@ -461,6 +503,310 @@ router.post(
       return res.status(500).json({
         success: false,
         message: "Login failed",
+      });
+    }
+  }
+);
+
+
+// CHANGE PASSWORD — authenticated users only
+router.post(
+  "/change-password",
+  authenticateToken,
+  rateLimit(15 * 60 * 1000, 5, "Too many password change attempts. Please try again later."),
+  async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+
+      if (
+        typeof currentPassword !== "string" ||
+        typeof newPassword !== "string" ||
+        !currentPassword ||
+        !newPassword
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Current password and new password are required",
+        });
+      }
+
+      if (newPassword.length < 8 || newPassword.length > 128) {
+        return res.status(400).json({
+          success: false,
+          message: "New password must be between 8 and 128 characters",
+        });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+      });
+
+      if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
+        return res.status(401).json({
+          success: false,
+          message: "Current password is incorrect",
+        });
+      }
+
+      if (await bcrypt.compare(newPassword, user.password)) {
+        return res.status(400).json({
+          success: false,
+          message: "New password must be different from your current password",
+        });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { password: hashedPassword },
+      });
+
+      return res.json({
+        success: true,
+        message: "Password changed successfully",
+      });
+    } catch (error) {
+      console.error("Change password error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Unable to change password",
+      });
+    }
+  }
+);
+
+// SEND PASSWORD RESET OTP
+router.post(
+  "/forgot-password",
+  rateLimit(15 * 60 * 1000, 5, "Too many password reset requests. Please try again later."),
+  async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (typeof email !== "string" || !email.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "College email is required",
+        });
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+
+      if (!/^[^\s@]+@sst\.scaler\.com$/.test(normalizedEmail)) {
+        return res.status(400).json({
+          success: false,
+          message: "Enter a valid SST student email address",
+        });
+      }
+
+      const genericResponse = {
+        success: true,
+        message: "If an account exists for this email, a password reset code has been sent.",
+      };
+
+      const user = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: { id: true },
+      });
+
+      if (!user) {
+        return res.json(genericResponse);
+      }
+
+      const existing = await prisma.passwordResetOtp.findUnique({
+        where: { email: normalizedEmail },
+      });
+
+      if (
+        existing &&
+        Date.now() - existing.lastSentAt.getTime() < 60 * 1000
+      ) {
+        return res.json(genericResponse);
+      }
+
+      const otp = randomInt(100000, 1000000).toString();
+      const otpHash = await bcrypt.hash(otp, 10);
+      const now = new Date();
+
+      await prisma.passwordResetOtp.upsert({
+        where: { email: normalizedEmail },
+        update: {
+          otpHash,
+          expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
+          attempts: 0,
+          lastSentAt: now,
+        },
+        create: {
+          email: normalizedEmail,
+          otpHash,
+          expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
+          lastSentAt: now,
+        },
+      });
+
+      try {
+        await sendPasswordResetEmail(normalizedEmail, otp);
+      } catch (mailError) {
+        await prisma.passwordResetOtp.deleteMany({
+          where: { email: normalizedEmail, otpHash },
+        });
+
+        console.error("Password reset email error:", mailError);
+      }
+
+      return res.json(genericResponse);
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Unable to process password reset request",
+      });
+    }
+  }
+);
+
+// VERIFY OTP AND RESET PASSWORD
+router.post(
+  "/reset-password",
+  rateLimit(15 * 60 * 1000, 10, "Too many password reset attempts. Please try again later."),
+  async (req, res) => {
+    try {
+      const { email, otp, newPassword } = req.body;
+
+      if (
+        typeof email !== "string" ||
+        typeof otp !== "string" ||
+        typeof newPassword !== "string" ||
+        !email.trim() ||
+        !otp ||
+        !newPassword
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Email, verification code, and new password are required",
+        });
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+
+      if (!/^[^\s@]+@sst\.scaler\.com$/.test(normalizedEmail)) {
+        return res.status(400).json({
+          success: false,
+          message: "Enter a valid SST student email address",
+        });
+      }
+
+      if (!/^\d{6}$/.test(otp)) {
+        return res.status(400).json({
+          success: false,
+          message: "Enter a valid 6-digit verification code",
+        });
+      }
+
+      if (newPassword.length < 8 || newPassword.length > 128) {
+        return res.status(400).json({
+          success: false,
+          message: "Password must be between 8 and 128 characters",
+        });
+      }
+
+      const resetRecord = await prisma.passwordResetOtp.findUnique({
+        where: { email: normalizedEmail },
+      });
+
+      if (!resetRecord) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid or expired verification code. Request a new code.",
+        });
+      }
+
+      if (
+        resetRecord.expiresAt <= new Date() ||
+        resetRecord.attempts >= 5
+      ) {
+        await prisma.passwordResetOtp.deleteMany({
+          where: { email: normalizedEmail },
+        });
+
+        return res.status(400).json({
+          success: false,
+          message: "Verification code expired or attempts exceeded. Request a new code.",
+        });
+      }
+
+      const otpMatches = await bcrypt.compare(otp, resetRecord.otpHash);
+
+      if (!otpMatches) {
+        const updated = await prisma.passwordResetOtp.updateMany({
+          where: {
+            email: normalizedEmail,
+            otpHash: resetRecord.otpHash,
+            expiresAt: { gt: new Date() },
+            AND: [
+              { attempts: resetRecord.attempts },
+              { attempts: { lt: 5 } },
+            ],
+          },
+          data: { attempts: { increment: 1 } },
+        });
+
+        if (updated.count && resetRecord.attempts + 1 >= 5) {
+          await prisma.passwordResetOtp.deleteMany({
+            where: {
+              email: normalizedEmail,
+              attempts: { gte: 5 },
+            },
+          });
+        }
+
+        return res.status(400).json({
+          success: false,
+          message: "Incorrect verification code",
+        });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      const result = await prisma.$transaction(async (tx) => {
+        const claimed = await tx.passwordResetOtp.deleteMany({
+          where: {
+            email: normalizedEmail,
+            otpHash: resetRecord.otpHash,
+            expiresAt: { gt: new Date() },
+            attempts: { lt: 5 },
+          },
+        });
+
+        if (claimed.count !== 1) {
+          return false;
+        }
+
+        const updatedUser = await tx.user.updateMany({
+          where: { email: normalizedEmail },
+          data: { password: hashedPassword },
+        });
+
+        return updatedUser.count === 1;
+      });
+
+      if (!result) {
+        return res.status(400).json({
+          success: false,
+          message: "Verification code is invalid or expired. Request a new code.",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Password reset successfully. You can now log in.",
+      });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Unable to reset password",
       });
     }
   }
