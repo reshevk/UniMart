@@ -1,4 +1,3 @@
-
 import { v2 as cloudinary } from "cloudinary";
 import express from "express";
 import multer from "multer";
@@ -16,6 +15,8 @@ cloudinary.config({
 
 const MAX_IMAGES = 5;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+const VALID_HOSTELS = ["UNI_WORLD_1", "UNI_WORLD_2"];
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -75,6 +76,10 @@ function normalizeWhatsapp(number) {
   if (/^91\d{10}$/.test(digits)) return digits;
 
   return undefined;
+}
+
+function isValidHostel(hostel) {
+  return VALID_HOSTELS.includes(hostel);
 }
 
 function isValidImageUrl(url) {
@@ -213,6 +218,7 @@ router.post("/", authenticateToken, async (req, res) => {
       imageUrl,
       imageUrls,
       sellerWhatsapp,
+      hostel,
     } = req.body;
 
     if (!validateProductFields({ title, description, category, condition })) {
@@ -220,6 +226,13 @@ router.post("/", authenticateToken, async (req, res) => {
         success: false,
         message:
           "Please provide valid product details. Title must be 3-100 characters and description 10-2000 characters.",
+      });
+    }
+
+    if (!isValidHostel(hostel)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please select UniWorld 1 or UniWorld 2.",
       });
     }
 
@@ -277,6 +290,7 @@ router.post("/", authenticateToken, async (req, res) => {
         imageUrl: finalImageUrls[0] || null,
         imageUrls: finalImageUrls,
         sellerWhatsapp: whatsapp,
+        hostel,
         sellerId: req.user.userId,
       },
     });
@@ -296,14 +310,34 @@ router.post("/", authenticateToken, async (req, res) => {
   }
 });
 
-// Get available listings
+// Get available listings, optionally filtered by hostel.
+// No hostel parameter means both hostels.
 router.get("/", async (req, res) => {
   try {
+    const { hostel } = req.query;
+
+    if (
+      hostel !== undefined &&
+      hostel !== "BOTH" &&
+      !isValidHostel(hostel)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid hostel filter.",
+      });
+    }
+
+    const where = {
+      status: "AVAILABLE",
+      moderationStatus: "ACTIVE",
+    };
+
+    if (hostel && hostel !== "BOTH") {
+      where.hostel = hostel;
+    }
+
     const products = await prisma.product.findMany({
-      where: {
-  status: "AVAILABLE",
-  moderationStatus: "ACTIVE",
-},
+      where,
       include: {
         seller: {
           select: { id: true, name: true },
@@ -357,6 +391,7 @@ router.patch("/:id", authenticateToken, async (req, res) => {
       imageUrls,
       sellerWhatsapp,
       status,
+      hostel,
     } = req.body;
 
     const existingProduct = await prisma.product.findFirst({
@@ -374,6 +409,17 @@ router.patch("/:id", authenticateToken, async (req, res) => {
     }
 
     const data = {};
+
+    if (hostel !== undefined) {
+      if (!isValidHostel(hostel)) {
+        return res.status(400).json({
+          success: false,
+          message: "Please select UniWorld 1 or UniWorld 2.",
+        });
+      }
+
+      data.hostel = hostel;
+    }
 
     if (title !== undefined) {
       if (

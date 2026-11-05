@@ -74,11 +74,16 @@ io.use(async (socket, next) => {
         id: true,
         role: true,
         suspendedAt: true,
+        tokenVersion: true,
       },
     });
 
     if (!user) {
       return next(new Error("Account no longer exists"));
+    }
+
+    if ((decoded.tokenVersion ?? 0) !== (user.tokenVersion ?? 0)) {
+      return next(new Error("Your session has expired. Please log in again."));
     }
 
     if (user.suspendedAt) {

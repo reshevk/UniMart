@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -38,6 +39,7 @@ function SellItem() {
     price: "",
     category: "",
     condition: "",
+    hostel: "",
     sellerWhatsapp: "",
   });
 
@@ -156,6 +158,11 @@ function SellItem() {
 
     if (!formData.condition) {
       showMessage("Please select the product condition.");
+      return false;
+    }
+
+    if (!["UNI_WORLD_1", "UNI_WORLD_2"].includes(formData.hostel)) {
+      showMessage("Please select UniWorld 1 or UniWorld 2.");
       return false;
     }
 
@@ -578,7 +585,7 @@ function SellItem() {
                 </select>
               </div>
 
-              <div className="sm:col-span-2">
+              <div>
                 <label htmlFor="condition" className={labelClass}>
                   Product condition <span className="text-red-500">*</span>
                 </label>
@@ -598,6 +605,30 @@ function SellItem() {
                   <option value="Good">Good</option>
                   <option value="Fair">Fair</option>
                 </select>
+              </div>
+
+              <div>
+                <label htmlFor="hostel" className={labelClass}>
+                  Your hostel <span className="text-red-500">*</span>
+                </label>
+
+                <select
+                  id="hostel"
+                  name="hostel"
+                  value={formData.hostel}
+                  onChange={handleChange}
+                  required
+                  disabled={loading}
+                  className={inputClass}
+                >
+                  <option value="">Select your hostel</option>
+                  <option value="UNI_WORLD_1">UniWorld 1</option>
+                  <option value="UNI_WORLD_2">UniWorld 2</option>
+                </select>
+
+                <p className="mt-2 text-xs leading-5 text-[#87968c]">
+                  Select the hostel where buyers can meet you to collect the item.
+                </p>
               </div>
             </div>
           </section>

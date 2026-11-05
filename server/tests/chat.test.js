@@ -65,6 +65,7 @@ const validProduct = {
   price: 25000,
   category: "Electronics",
   condition: "Good",
+   hostel: "UNI_WORLD_1",
 };
 
 const existingProduct = {

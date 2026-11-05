@@ -55,6 +55,7 @@ export async function authenticateToken(req, res, next) {
         email: true,
         role: true,
         suspendedAt: true,
+        tokenVersion: true,
         adminTeamMembership: {
           select: {
             canManageListings: true,
@@ -70,6 +71,13 @@ export async function authenticateToken(req, res, next) {
       return res.status(401).json({
         success: false,
         message: "Account no longer exists",
+      });
+    }
+
+    if ((decoded.tokenVersion ?? 0) !== (user.tokenVersion ?? 0)) {
+      return res.status(401).json({
+        success: false,
+        message: "Your session has expired. Please log in again.",
       });
     }
 

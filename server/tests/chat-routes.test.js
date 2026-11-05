@@ -153,6 +153,7 @@ describe("Chat routes", () => {
         id: PRODUCT_ID,
         sellerId: BUYER_ID,
         status: "AVAILABLE",
+        moderationStatus: "ACTIVE",
       });
 
       const response = await request(app)
@@ -171,6 +172,7 @@ describe("Chat routes", () => {
         id: PRODUCT_ID,
         sellerId: SELLER_ID,
         status: "AVAILABLE",
+        moderationStatus: "ACTIVE",
       });
 
       prismaMock.conversation.upsert.mockResolvedValue(conversation);

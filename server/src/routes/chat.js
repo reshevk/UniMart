@@ -22,7 +22,11 @@ router.post("/conversations", async (req, res) => {
       include: { seller: true },
     });
 
-    if (!product || product.status !== "AVAILABLE") {
+    if (
+      !product ||
+      product.status !== "AVAILABLE" ||
+      product.moderationStatus !== "ACTIVE"
+    ) {
       return res.status(404).json({
         success: false,
         message: "Product is not available",
@@ -60,13 +64,13 @@ router.post("/conversations", async (req, res) => {
       },
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       conversation,
     });
   } catch (error) {
     console.error("Create conversation error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to create conversation",
     });
@@ -122,13 +126,13 @@ router.get("/conversations", async (req, res) => {
       })
     );
 
-    res.json({
+    return res.json({
       success: true,
       conversations: conversationsWithUnreadCount,
     });
   } catch (error) {
     console.error("Fetch conversations error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to fetch conversations",
     });
@@ -177,13 +181,13 @@ router.get("/conversations/:id/messages", async (req, res) => {
       orderBy: { createdAt: "asc" },
     });
 
-    res.json({
+    return res.json({
       success: true,
       messages,
     });
   } catch (error) {
     console.error("Fetch messages error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to fetch messages",
     });
@@ -247,13 +251,13 @@ router.post("/conversations/:id/messages", async (req, res) => {
         });
     }
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message,
     });
   } catch (error) {
     console.error("Send message error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to send message",
     });

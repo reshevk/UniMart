@@ -27,6 +27,7 @@ function createToken(user) {
     {
       userId: user.id,
       email: user.email,
+      tokenVersion: user.tokenVersion ?? 0,
     },
     process.env.JWT_SECRET,
     {
@@ -81,7 +82,6 @@ async function sendVerificationEmail(email, otp) {
   }
 }
 
-
 async function sendPasswordResetEmail(email, otp) {
   const apiKey = process.env.BREVO_API_KEY;
   const senderEmail = process.env.BREVO_SENDER_EMAIL;
@@ -118,7 +118,9 @@ async function sendPasswordResetEmail(email, otp) {
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`Brevo API request failed with status ${response.status}: ${errorBody}`);
+    throw new Error(
+      `Brevo API request failed with status ${response.status}: ${errorBody}`
+    );
   }
 }
 
@@ -508,12 +510,15 @@ router.post(
   }
 );
 
-
 // CHANGE PASSWORD — authenticated users only
 router.post(
   "/change-password",
   authenticateToken,
-  rateLimit(15 * 60 * 1000, 5, "Too many password change attempts. Please try again later."),
+  rateLimit(
+    15 * 60 * 1000,
+    5,
+    "Too many password change attempts. Please try again later."
+  ),
   async (req, res) => {
     try {
       const { currentPassword, newPassword } = req.body;
@@ -559,7 +564,10 @@ router.post(
 
       await prisma.user.update({
         where: { id: user.id },
-        data: { password: hashedPassword },
+        data: {
+          password: hashedPassword,
+          tokenVersion: { increment: 1 },
+        },
       });
 
       return res.json({
@@ -579,7 +587,11 @@ router.post(
 // SEND PASSWORD RESET OTP
 router.post(
   "/forgot-password",
-  rateLimit(15 * 60 * 1000, 5, "Too many password reset requests. Please try again later."),
+  rateLimit(
+    15 * 60 * 1000,
+    5,
+    "Too many password reset requests. Please try again later."
+  ),
   async (req, res) => {
     try {
       const { email } = req.body;
@@ -669,7 +681,11 @@ router.post(
 // VERIFY OTP AND RESET PASSWORD
 router.post(
   "/reset-password",
-  rateLimit(15 * 60 * 1000, 10, "Too many password reset attempts. Please try again later."),
+  rateLimit(
+    15 * 60 * 1000,
+    10,
+    "Too many password reset attempts. Please try again later."
+  ),
   async (req, res) => {
     try {
       const { email, otp, newPassword } = req.body;
@@ -785,7 +801,10 @@ router.post(
 
         const updatedUser = await tx.user.updateMany({
           where: { email: normalizedEmail },
-          data: { password: hashedPassword },
+          data: {
+            password: hashedPassword,
+            tokenVersion: { increment: 1 },
+          },
         });
 
         return updatedUser.count === 1;

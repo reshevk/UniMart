@@ -394,6 +394,7 @@ function Home({ user, onLogout }) {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedHostel, setSelectedHostel] = useState("BOTH");
   const [products, setProducts] = useState([]);
   const [apiError, setApiError] = useState("");
   const [productsLoading, setProductsLoading] = useState(true);
@@ -409,7 +410,14 @@ function Home({ user, onLogout }) {
   useEffect(() => {
     let active = true;
 
-    API.get("/products")
+    setProductsLoading(true);
+    setApiError("");
+
+    API.get("/products", {
+      params: {
+        hostel: selectedHostel,
+      },
+    })
       .then((response) => {
         if (active) {
           setProducts(response.data.products || []);
@@ -417,6 +425,7 @@ function Home({ user, onLogout }) {
       })
       .catch((error) => {
         console.error("Products API error:", error);
+
         if (active) {
           setApiError("Could not load products. Please try again.");
         }
@@ -430,7 +439,7 @@ function Home({ user, onLogout }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [selectedHostel]);
 
   function toggleWishlist(productId) {
     const updated = wishlistIds.includes(productId)
@@ -472,6 +481,24 @@ function Home({ user, onLogout }) {
 
     navigate(productId ? `/chat?productId=${productId}` : "/chat");
   }
+
+  const hostelOptions = [
+    {
+      value: "BOTH",
+      title: "All hostels",
+      description: "Explore everything",
+    },
+    {
+      value: "UNI_WORLD_1",
+      title: "UniWorld 1",
+      description: "Browse this hostel",
+    },
+    {
+      value: "UNI_WORLD_2",
+      title: "UniWorld 2",
+      description: "Browse this hostel",
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-[#f4faf6] text-[#18352a]">
@@ -573,6 +600,7 @@ function Home({ user, onLogout }) {
       </nav>
 
       <main className="mx-auto max-w-7xl px-5">
+        {/* HERO */}
         <section className="relative mt-8 overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#d9f5e4] via-[#bcebd0] to-[#e9f8ef] px-6 py-16 md:px-14 md:py-24">
           <div className="absolute -right-16 -top-20 h-72 w-72 rounded-full bg-white/40 blur-3xl" />
           <div className="absolute -bottom-20 left-1/3 h-64 w-64 rounded-full bg-green-300/30 blur-3xl" />
@@ -614,7 +642,7 @@ function Home({ user, onLogout }) {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search books, gadgets, furniture..."
+                placeholder="Search"
                 className="min-w-0 flex-1 bg-transparent py-2 text-xs outline-none placeholder:text-gray-500 sm:py-3 sm:text-sm"
               />
 
@@ -643,7 +671,7 @@ function Home({ user, onLogout }) {
 
             <Link
               to={user ? "/sell" : "/register"}
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-green-700 px-6 py-3 font-semibold text-white shadow-lg hover:bg-green-800"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl border border-green-900/10 bg-[#075c3b] px-6 py-3 font-semibold text-white shadow-lg shadow-green-900/20 transition hover:bg-[#064b32]"
             >
               {user ? "Sell an Item" : "Join UniMart"}
               <ArrowRight size={18} />
@@ -651,7 +679,81 @@ function Home({ user, onLogout }) {
           </div>
         </section>
 
-        <section id="categories" className="py-14">
+        {/* HOSTEL SELECTOR */}
+        <section className="relative z-10 mx-auto max-w-5xl pb-8 pt-9 sm:pb-10">
+          <div className="overflow-hidden rounded-[2rem] border border-white/80 bg-white/75 p-5 shadow-xl shadow-green-950/5 backdrop-blur-2xl sm:p-7">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-green-100 text-green-800">
+                  <ShoppingBag size={21} />
+                </div>
+
+                <div>
+                  <h2 className="text-lg font-bold text-[#18352a]">
+                    Explore by hostel
+                  </h2>
+                  <p className="mt-0.5 text-xs text-gray-500 sm:text-sm">
+                    Find products from your campus community
+                  </p>
+                </div>
+              </div>
+
+              <span className="w-fit rounded-full border border-green-100 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-800">
+                SST Campus
+              </span>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {hostelOptions.map((hostel) => {
+                const isSelected = selectedHostel === hostel.value;
+
+                return (
+                  <button
+                    key={hostel.value}
+                    type="button"
+                    onClick={() => setSelectedHostel(hostel.value)}
+                    aria-pressed={isSelected}
+                    className={`group relative flex min-h-[82px] items-center justify-between overflow-hidden rounded-2xl border p-4 text-left transition duration-200 hover:-translate-y-0.5 ${
+                      isSelected
+                        ? "border-green-600 bg-gradient-to-br from-green-50 to-[#e4f7eb] shadow-md shadow-green-900/10"
+                        : "border-gray-100 bg-white/80 hover:border-green-200 hover:bg-green-50/60"
+                    }`}
+                  >
+                    <div>
+                      <p
+                        className={`font-bold ${
+                          isSelected ? "text-green-900" : "text-gray-800"
+                        }`}
+                      >
+                        {hostel.title}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {hostel.description}
+                      </p>
+                    </div>
+
+                    <div
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition ${
+                        isSelected
+                          ? "border-green-700 bg-green-700 text-white"
+                          : "border-gray-200 bg-white text-transparent group-hover:border-green-300"
+                      }`}
+                    >
+                      <CheckCircle2 size={16} />
+                    </div>
+
+                    {isSelected && (
+                      <div className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-green-600" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* CATEGORIES */}
+        <section id="categories" className="py-10">
           <div className="mb-7 flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold">Browse categories</h2>
@@ -704,12 +806,19 @@ function Home({ user, onLogout }) {
           </div>
         </section>
 
+        {/* PRODUCTS */}
         <section id="products" className="pb-16">
           <div className="mb-7 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
               <h2 className="text-2xl font-bold">Trending on campus</h2>
               <p className="mt-1 text-sm text-gray-500">
-                Discover what students are selling
+                {selectedHostel === "BOTH"
+                  ? "Discover what students are selling"
+                  : `Discover products listed in ${
+                      selectedHostel === "UNI_WORLD_1"
+                        ? "UniWorld 1"
+                        : "UniWorld 2"
+                    }`}
               </p>
             </div>
 
@@ -736,9 +845,17 @@ function Home({ user, onLogout }) {
                 size={36}
                 className="mx-auto mb-3 text-green-700"
               />
-              <h3 className="text-lg font-bold">No products listed yet</h3>
+              <h3 className="text-lg font-bold">
+                No products listed yet
+              </h3>
               <p className="mt-2 text-sm text-gray-500">
-                Be the first student to list something on UniMart!
+                {selectedHostel === "BOTH"
+                  ? "Be the first student to list something on UniMart!"
+                  : `No products have been listed in ${
+                      selectedHostel === "UNI_WORLD_1"
+                        ? "UniWorld 1"
+                        : "UniWorld 2"
+                    } yet.`}
               </p>
               <Link
                 to={user ? "/sell" : "/register"}
@@ -786,12 +903,13 @@ function Home({ user, onLogout }) {
                       }}
                       className="group cursor-pointer overflow-hidden rounded-3xl border border-white bg-white/75 shadow-sm backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-xl"
                     >
-                      <div className="relative flex h-56 items-center justify-center overflow-hidden bg-green-50">
+                      <div className="relative flex h-36 items-center justify-center overflow-hidden bg-green-50 sm:h-44">
                         {coverImage ? (
                           <img
                             src={coverImage}
                             alt={product.title}
-                            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                            loading="lazy"
+                            className="h-full w-full object-contain p-3 transition duration-300 sm:p-4"
                           />
                         ) : (
                           <div className="flex flex-col items-center gap-2 text-green-700/50">
@@ -802,11 +920,23 @@ function Home({ user, onLogout }) {
                           </div>
                         )}
 
-                        <span className="absolute left-3 top-3 rounded-full border border-white/60 bg-white/80 px-3 py-1.5 text-xs font-semibold text-green-800 backdrop-blur-xl">
-                          {product.condition}
-                        </span>
+                        {product.hostel && (
+                          <span className="absolute left-3 top-3 rounded-full border border-white/70 bg-white/90 px-3 py-1.5 text-xs font-semibold text-green-900 shadow-sm backdrop-blur-xl">
+                            {product.hostel === "UNI_WORLD_1"
+                              ? "UniWorld 1"
+                              : product.hostel === "UNI_WORLD_2"
+                                ? "UniWorld 2"
+                                : product.hostel}
+                          </span>
+                        )}
+                        {product.condition && (
+  <span className="absolute bottom-3 left-3 rounded-full border border-white/70 bg-white/90 px-3 py-1.5 text-xs font-semibold capitalize text-gray-800 shadow-sm backdrop-blur-xl">
+    {product.condition.replaceAll("_", " ").toLowerCase()}
+  </span>
+)}
 
                         <button
+                          type="button"
                           aria-label="Toggle wishlist"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -825,22 +955,17 @@ function Home({ user, onLogout }) {
                         </button>
                       </div>
 
-                      <div className="p-5">
-                        <p className="text-xs font-medium uppercase tracking-wider text-green-700">
-                          {product.category}
-                        </p>
-                        <h3 className="mt-2 break-words text-lg font-bold">
+                      <div className="p-4 sm:p-5">
+                        <h3 className="break-words text-base font-bold sm:text-lg">
                           {product.title}
                         </h3>
-                        <p className="mt-1 text-sm text-gray-500">
-                          Seller: {product.seller?.name || "Student"}
-                        </p>
 
-                        <div className="mt-5 flex items-center justify-between">
-                          <span className="text-xl font-bold text-green-800">
+                        <div className="mt-4 flex items-center justify-between gap-3">
+                          <span className="text-lg font-bold text-green-800 sm:text-xl">
                             ₹{Number(product.price).toLocaleString("en-IN")}
                           </span>
                           <button
+                            type="button"
                             aria-label={`Chat with seller of ${product.title}`}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -860,35 +985,32 @@ function Home({ user, onLogout }) {
           )}
         </section>
 
-        <section className="mb-14 flex flex-col items-center justify-between gap-6 rounded-3xl border border-white bg-gradient-to-r from-green-800 to-green-600 p-8 text-center text-white shadow-xl shadow-green-900/10 sm:flex-row sm:text-left md:p-12">
-          <div>
-            <h2 className="text-2xl font-bold md:text-3xl">
-              Have something to sell?
-            </h2>
-            <p className="mt-2 text-sm text-green-100">
-              List your product and connect with students on campus.
-            </p>
-          </div>
-          <Link
-            to={user ? "/sell" : "/login"}
-            className="flex shrink-0 items-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-green-800 hover:bg-green-50"
-          >
-            Start selling <ArrowRight size={18} />
-          </Link>
-        </section>
+        {/* SELL CTA */}
+       <section className="mb-14 flex flex-col items-center justify-between gap-6 rounded-3xl border border-white bg-gradient-to-r from-green-800 to-green-600 p-8 text-center text-white shadow-xl shadow-green-900/10 sm:flex-row sm:text-left md:p-12">
+  <div>
+    <h2 className="text-2xl font-bold md:text-3xl">
+      Have something to sell?
+    </h2>
+    <p className="mt-2 text-sm text-green-100">
+      List your product and connect with students on campus.
+    </p>
+  </div>
 
-        <p className="pb-8 text-center text-xs text-gray-500">
-          {apiError || "UniMart marketplace is running"}
-        </p>
+  <Link
+    to={user ? "/sell" : "/login"}
+    className="flex shrink-0 items-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold !text-green-800 transition-colors hover:bg-green-50"
+  >
+    <span className="!text-green-800">Start selling</span>
+    <ArrowRight size={18} className="!text-green-800" />
+  </Link>
+</section>
       </main>
 
       <footer className="border-t border-green-900/10 bg-white/60 px-5 py-8 text-center">
         <h3 className="text-xl font-bold">
           Uni<span className="text-green-700">Mart</span>
         </h3>
-        <p className="mt-2 text-sm text-gray-500">
-          Built for SST
-        </p>
+        <p className="mt-2 text-sm text-gray-500">Built for SST</p>
         <p className="mt-3 text-xs text-gray-400">
           © 2026 UniMart. All rights reserved.
         </p>
@@ -1785,12 +1907,8 @@ function Account({ user, onLogout }) {
           <p className="text-sm font-semibold text-green-800">
             UniMart 💚
           </p>
-          <p className="mt-1 text-xs text-gray-400">
-            Built for SST
-          </p>
-          <p className="mt-1 text-xs text-gray-400">
-            © 2026
-          </p>
+          <p className="mt-1 text-xs text-gray-400">Built for SST</p>
+          <p className="mt-1 text-xs text-gray-400">© 2026</p>
         </footer>
       </main>
     </div>

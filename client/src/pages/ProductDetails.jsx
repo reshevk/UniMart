@@ -14,6 +14,7 @@ import {
   Sparkles,
   ChevronRight,
   ShoppingBag,
+  MapPin,
 } from "lucide-react";
 import API from "../api";
 
@@ -25,6 +26,15 @@ const REPORT_REASONS = [
   "Spam or duplicate listing",
   "Other",
 ];
+
+function getHostelLabel(hostel) {
+  const hostelLabels = {
+    UNI_WORLD_1: "UniWorld 1",
+    UNI_WORLD_2: "UniWorld 2",
+  };
+
+  return hostelLabels[hostel] || "Not specified";
+}
 
 function ProductDetails() {
   const { id } = useParams();
@@ -458,7 +468,7 @@ function ProductDetails() {
               </div>
 
               {/* Product attributes */}
-              <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="rounded-xl border border-gray-100 bg-gray-50/80 p-3.5">
                   <div className="mb-2 flex items-center gap-2 text-green-700">
                     <Tag size={17} />
@@ -480,6 +490,18 @@ function ProductDetails() {
                   </div>
                   <p className="truncate text-sm font-bold text-gray-900">
                     {product.category || "Other"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-green-100 bg-green-50/70 p-3.5">
+                  <div className="mb-2 flex items-center gap-2 text-green-700">
+                    <MapPin size={17} />
+                    <span className="text-xs font-semibold text-gray-500">
+                      Hostel
+                    </span>
+                  </div>
+                  <p className="text-sm font-bold text-green-900">
+                    {getHostelLabel(product.hostel)}
                   </p>
                 </div>
               </div>
@@ -633,7 +655,7 @@ function ProductDetails() {
         {/* Footer */}
         <footer className="mt-14 border-t border-green-100 py-7 text-center">
           <p className="text-xs font-semibold tracking-wide text-green-800">
-            Built for SST. 💚
+            Built for SST
           </p>
         </footer>
       </div>

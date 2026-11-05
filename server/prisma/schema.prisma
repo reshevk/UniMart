@@ -12,6 +12,11 @@ enum UserRole {
   OWNER
 }
 
+enum Hostel {
+  UNI_WORLD_1
+  UNI_WORLD_2
+}
+
 enum ModerationStatus {
   ACTIVE
   HIDDEN
@@ -30,6 +35,7 @@ model User {
   name          String
   email         String  @unique
   password      String
+  tokenVersion Int @default(0)
   emailVerified Boolean @default(true)
 
   role             UserRole  @default(STUDENT)
@@ -54,7 +60,7 @@ model User {
   adminActionsPerformed AdminAction[] @relation("AdminActor")
   adminActionsTargeting AdminAction[] @relation("AdminTargetUser")
 
-  createdAnnouncements Announcement[]     @relation("AnnouncementCreator")
+  createdAnnouncements Announcement[] @relation("AnnouncementCreator")
   announcementReads    AnnouncementRead[]
 
   createdAt DateTime @default(now())
@@ -88,6 +94,8 @@ model Product {
   sellerWhatsapp String?
   status         String   @default("AVAILABLE")
 
+  hostel Hostel @default(UNI_WORLD_1)
+
   moderationStatus ModerationStatus @default(ACTIVE)
   moderatedAt      DateTime?
   moderationReason String?
@@ -103,6 +111,7 @@ model Product {
   updatedAt DateTime @updatedAt
 
   @@index([moderationStatus])
+  @@index([hostel])
 }
 
 model Conversation {
@@ -259,6 +268,7 @@ model AdminTeamMember {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
 model PasswordResetOtp {
   id         String   @id @default(uuid())
   email      String   @unique
